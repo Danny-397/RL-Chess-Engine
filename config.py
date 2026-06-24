@@ -112,6 +112,30 @@ class TrainingConfig:
     #: Hard cap on game length so self-play cannot run forever in shuffly,
     #: drawish positions produced by a weak early network.
     max_moves: int = 200
+    #: Number of worker processes used to generate self-play games in parallel.
+    #: Self-play (not training) dominates runtime, and games are independent, so
+    #: this is the single biggest speed-up available.  ``1`` runs sequentially in
+    #: the main process (simplest, and what the tests use).  Workers always run
+    #: on CPU regardless of the training device.
+    num_self_play_workers: int = 1
+
+    # ---- PGN logging ------------------------------------------------------- #
+    #: If ``True``, every self-play game is appended to a PGN file per iteration
+    #: (``<pgn_dir>/selfplay_iterNNN.pgn``) so games can be replayed/inspected in
+    #: any chess GUI -- great for showcasing what the engine has learned.
+    save_self_play_pgn: bool = False
+    #: Directory for the PGN files written when ``save_self_play_pgn`` is set.
+    pgn_dir: str = "pgn"
+
+    # ---- periodic evaluation ----------------------------------------------- #
+    #: Evaluate the current network against a baseline every ``eval_every``
+    #: iterations and log an approximate Elo gain.  ``0`` disables evaluation
+    #: (the default, so plain training runs stay fast).
+    eval_every: int = 0
+    #: Number of games played per evaluation match (split evenly across colours).
+    eval_games: int = 10
+    #: MCTS simulations to use *during evaluation* (kept low so eval is cheap).
+    eval_simulations: int = 50
 
     # ---- optimisation ------------------------------------------------------ #
     batch_size: int = 64
@@ -176,9 +200,11 @@ class Config:
             return "cpu"
 
     def ensure_directories(self) -> None:
-        """Create the checkpoint/log directories if they do not yet exist."""
+        """Create the checkpoint/log/PGN directories if they do not yet exist."""
         os.makedirs(self.training.checkpoint_dir, exist_ok=True)
         os.makedirs(self.training.log_dir, exist_ok=True)
+        if self.training.save_self_play_pgn:
+            os.makedirs(self.training.pgn_dir, exist_ok=True)
 
 
 # A ready-to-use default instance for quick experimentation / imports.

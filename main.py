@@ -46,6 +46,12 @@ def _build_config(args: argparse.Namespace) -> Config:
         config.mcts.num_simulations = args.simulations
     if args.device is not None:
         config.training.device = args.device
+    if args.workers is not None:
+        config.training.num_self_play_workers = args.workers
+    if args.save_pgn:
+        config.training.save_self_play_pgn = True
+    if args.eval_every is not None:
+        config.training.eval_every = args.eval_every
     return config
 
 
@@ -63,6 +69,9 @@ def run_train(args: argparse.Namespace) -> None:
     print(f"  iterations         = {config.training.num_iterations}")
     print(f"  games/iteration    = {config.training.games_per_iteration}")
     print(f"  MCTS simulations   = {config.mcts.num_simulations}")
+    print(f"  self-play workers  = {config.training.num_self_play_workers}")
+    print(f"  save self-play PGN = {config.training.save_self_play_pgn}")
+    print(f"  eval every         = {config.training.eval_every or 'off'}")
     print(f"  device             = {config.resolved_device()}")
     train(config)
 
@@ -148,6 +157,43 @@ def run_play(args: argparse.Namespace) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# eval mode
+# --------------------------------------------------------------------------- #
+def run_eval(args: argparse.Namespace) -> None:
+    """Play a match to measure engine strength and report an Elo estimate.
+
+    The candidate (``--checkpoint``) plays ``--eval-games`` games against an
+    opponent given by ``--opponent``: either ``"random"`` (the baseline) or the
+    path to another checkpoint (head-to-head between two trained engines).
+    """
+    from evaluation import NetworkAgent, RandomAgent, play_match
+
+    config = _build_config(args)
+    candidate_net = _load_engine(config, args.checkpoint)
+    candidate = NetworkAgent(candidate_net, config, name=os.path.basename(args.checkpoint))
+
+    if args.opponent.lower() == "random":
+        opponent = RandomAgent()
+    else:
+        opponent_net = _load_engine(config, args.opponent)
+        opponent = NetworkAgent(opponent_net, config, name=os.path.basename(args.opponent))
+
+    print(f"\nPlaying {args.eval_games} games: {candidate.name} vs {opponent.name} ...")
+    result = play_match(
+        candidate, opponent, config,
+        num_games=args.eval_games,
+        collect_pgn=bool(args.pgn_out),
+        verbose=True,
+    )
+    print("\n" + result.summary(candidate.name, opponent.name))
+
+    if args.pgn_out:
+        with open(args.pgn_out, "w", encoding="utf-8") as fh:
+            fh.write("\n\n".join(result.pgns) + "\n")
+        print(f"Saved {len(result.pgns)} games to {args.pgn_out}")
+
+
+# --------------------------------------------------------------------------- #
 # Argument parsing
 # --------------------------------------------------------------------------- #
 def build_parser() -> argparse.ArgumentParser:
@@ -157,8 +203,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--mode", choices=["train", "play"], default="train",
-        help="train a new engine via self-play, or play against a trained one.",
+        "--mode", choices=["train", "play", "eval"], default="train",
+        help="train via self-play, play against the engine, or evaluate strength.",
     )
     # training overrides
     parser.add_argument("--iterations", type=int, default=None,
@@ -166,15 +212,28 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--games", type=int, default=None,
                         help="self-play games per iteration (train mode).")
     parser.add_argument("--simulations", type=int, default=None,
-                        help="MCTS simulations per move (both modes).")
+                        help="MCTS simulations per move (all modes).")
     parser.add_argument("--device", type=str, default=None,
                         help="'cpu', 'cuda', or 'auto'.")
+    parser.add_argument("--workers", type=int, default=None,
+                        help="parallel self-play worker processes (train mode).")
+    parser.add_argument("--save-pgn", action="store_true",
+                        help="archive self-play games as PGN (train mode).")
+    parser.add_argument("--eval-every", type=int, default=None,
+                        help="evaluate vs random every N iterations (train mode).")
     # play options
     parser.add_argument("--checkpoint", type=str, default="checkpoints/best.pt",
-                        help="model checkpoint to load (play mode).")
+                        help="model checkpoint to load (play / eval mode).")
     parser.add_argument("--color", type=str, default="white",
                         choices=["white", "black"],
                         help="the colour YOU play (play mode).")
+    # eval options
+    parser.add_argument("--opponent", type=str, default="random",
+                        help="'random' or a checkpoint path to play against (eval mode).")
+    parser.add_argument("--eval-games", type=int, default=20,
+                        help="number of games to play (eval mode).")
+    parser.add_argument("--pgn-out", type=str, default=None,
+                        help="write evaluated games to this PGN file (eval mode).")
     return parser
 
 
@@ -183,6 +242,8 @@ def main() -> None:
     args = build_parser().parse_args()
     if args.mode == "train":
         run_train(args)
+    elif args.mode == "eval":
+        run_eval(args)
     else:
         run_play(args)
 

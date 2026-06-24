@@ -39,7 +39,12 @@ import torch.nn.functional as F
 
 from config import Config
 from model import ChessNet
-from self_play import TrainingExample, generate_self_play_data
+from self_play import (
+    GameResult,
+    TrainingExample,
+    generate_self_play_data,
+    generate_self_play_data_parallel,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -214,6 +219,31 @@ def _log(log_path: str, message: str) -> None:
         fh.write(message + "\n")
 
 
+def _write_pgns(results, path: str) -> None:
+    """Write the PGN of every game in ``results`` to ``path`` (one file/iter)."""
+    with open(path, "w", encoding="utf-8") as fh:
+        for result in results:
+            if result.pgn:
+                fh.write(result.pgn + "\n\n")
+
+
+def _run_self_play(model: ChessNet, config: Config) -> "list[GameResult]":
+    """Generate one iteration of self-play, parallel or sequential per config."""
+    tcfg = config.training
+    if tcfg.num_self_play_workers > 1:
+        return generate_self_play_data_parallel(
+            model, config,
+            num_games=tcfg.games_per_iteration,
+            num_workers=tcfg.num_self_play_workers,
+            collect_pgn=tcfg.save_self_play_pgn,
+        )
+    return generate_self_play_data(
+        model, config,
+        num_games=tcfg.games_per_iteration,
+        collect_pgn=tcfg.save_self_play_pgn,
+    )
+
+
 def train(config: Config | None = None, model: ChessNet | None = None) -> ChessNet:
     """Run the complete self-play + training loop.
 
@@ -246,12 +276,18 @@ def train(config: Config | None = None, model: ChessNet | None = None) -> ChessN
     for iteration in range(1, tcfg.num_iterations + 1):
         t0 = time.time()
 
-        # 1. Self-play: generate fresh data with the current network.
+        # 1. Self-play: generate fresh data with the current network.  Each game
+        #    yields a GameResult (examples + result + optional PGN); we flatten
+        #    the per-game example lists into the replay buffer.
         model.eval()
-        examples = generate_self_play_data(
-            model, config, num_games=tcfg.games_per_iteration
-        )
+        results = _run_self_play(model, config)
+        examples = [ex for r in results for ex in r.examples]
         buffer.add(examples)
+
+        # Optionally archive the games as PGN for later inspection / showcasing.
+        if tcfg.save_self_play_pgn:
+            pgn_path = os.path.join(tcfg.pgn_dir, f"selfplay_iter{iteration:03d}.pgn")
+            _write_pgns(results, pgn_path)
 
         # 2. Optimise: take gradient steps over the replay buffer.
         total, p_loss, v_loss = train_on_buffer(model, optimizer, buffer, config, device)
@@ -260,7 +296,8 @@ def train(config: Config | None = None, model: ChessNet | None = None) -> ChessN
         _log(
             log_path,
             f"[iter {iteration:3d}/{tcfg.num_iterations}] "
-            f"new_examples={len(examples):5d} buffer={len(buffer):6d} "
+            f"games={len(results):3d} new_examples={len(examples):5d} "
+            f"buffer={len(buffer):6d} "
             f"loss={total:.4f} (policy={p_loss:.4f}, value={v_loss:.4f}) "
             f"time={dt:.1f}s",
         )
@@ -269,6 +306,17 @@ def train(config: Config | None = None, model: ChessNet | None = None) -> ChessN
         if iteration % tcfg.checkpoint_every == 0:
             ckpt = os.path.join(tcfg.checkpoint_dir, f"checkpoint_iter{iteration:03d}.pt")
             save_checkpoint(model, ckpt, iteration=iteration)
+
+        # 4. Periodically gauge real strength against the random baseline.
+        if tcfg.eval_every and iteration % tcfg.eval_every == 0:
+            from evaluation import evaluate_against_random  # lazy import
+
+            model.eval()
+            match = evaluate_against_random(
+                model, config, num_games=tcfg.eval_games,
+                num_simulations=tcfg.eval_simulations,
+            )
+            _log(log_path, f"    [eval] vs random: {match.summary('network', 'random')}")
 
     # Always save a final "best" checkpoint for easy loading in play mode.
     best_path = os.path.join(tcfg.checkpoint_dir, "best.pt")

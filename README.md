@@ -69,10 +69,11 @@ prove they're correct:
 | `chess_game.py`  | Rules wrapper + board→tensor and move↔index encodings. |
 | `model.py`       | The dual-headed residual policy/value network. |
 | `mcts.py`        | PUCT Monte-Carlo Tree Search guided by the network. |
-| `self_play.py`   | Generates `(state, policy, value)` training data via self-play. |
-| `training.py`    | Loss function, replay buffer, training loop, checkpointing. |
-| `main.py`        | CLI entry point: `--mode train` / `--mode play`. |
-| `tests/`         | Pytest suite covering encoding, model, search and terminals. |
+| `self_play.py`   | Generates `(state, policy, value)` training data via self-play (sequential **and** multiprocessing), with PGN export. |
+| `training.py`    | Loss function, replay buffer, training loop, checkpointing, periodic evaluation. |
+| `evaluation.py`  | Pluggable agents, match play, and an approximate **Elo** estimate. |
+| `main.py`        | CLI entry point: `--mode train` / `--mode play` / `--mode eval`. |
+| `tests/`         | Pytest suite covering encoding, model, search, self-play and evaluation. |
 
 ---
 
@@ -120,6 +121,47 @@ python main.py --mode train
 Checkpoints are written to `checkpoints/` and progress is logged to
 `logs/training.log`. The final model is saved as `checkpoints/best.pt`, which is
 the default the `play` mode looks for.
+
+#### Faster training: parallel self-play
+
+Self-play (not the gradient updates) dominates AlphaZero's runtime, and games are
+independent — so they fan out across CPU cores almost perfectly:
+
+```bash
+python main.py --mode train --workers 8        # 8 self-play worker processes
+```
+
+Workers each rebuild the network from the current weights and run on CPU (pinned
+to one thread each to avoid oversubscription); their `(state, policy, value)`
+examples are collected back in the main process for the gradient step.
+
+#### Archiving games + tracking strength during training
+
+```bash
+# Save every self-play game to pgn/selfplay_iterNNN.pgn, and every 5 iterations
+# play a quick match vs a random baseline and log the estimated Elo gain:
+python main.py --mode train --save-pgn --eval-every 5
+```
+
+### Measure engine strength (Elo)
+
+The `eval` mode plays a match and reports a win/draw/loss tally plus an
+approximate Elo difference (colours are alternated so first-move advantage
+cancels out):
+
+```bash
+# Trained engine vs. the random baseline (the basic "did it learn?" test):
+python main.py --mode eval --checkpoint checkpoints/best.pt --opponent random --eval-games 40
+
+# Head-to-head between two checkpoints (did training iteration N beat iteration M?):
+python main.py --mode eval --checkpoint checkpoints/checkpoint_iter020.pt \
+                           --opponent checkpoints/checkpoint_iter010.pt --eval-games 40
+
+# Optionally dump the played games to a PGN file with --pgn-out games.pgn
+```
+
+Elo is derived from the expected score `S` by the standard logistic relation
+`elo = -400 · log10(1/S − 1)`, so 50% → ±0, ~64% → ~+100, etc.
 
 ### Run the tests
 
@@ -180,9 +222,9 @@ The code is built to be tinkered with:
 
 - This is an **educational** engine. With modest simulation counts and a small
   network it will not approach strong engines like Stockfish or Leela.
-- Training is single-threaded and self-play (not the network) dominates runtime,
-  which is the usual AlphaZero bottleneck. Parallelising self-play across
-  processes is the highest-impact next step.
+- Self-play (not the network) dominates runtime, the usual AlphaZero bottleneck.
+  Multiprocessing self-play (`--workers`) addresses this on a single machine; the
+  next step up would be distributing self-play across multiple machines.
 - For clarity the board encoding omits move-history planes (used by the original
   AlphaZero to detect repetitions); this is a documented simplification.
 

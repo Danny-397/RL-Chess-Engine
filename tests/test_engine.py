@@ -27,6 +27,10 @@ from config import Config, NUM_ACTIONS, NUM_INPUT_PLANES
 from chess_game import ChessGame, encode_board, move_to_index, index_to_move
 from model import ChessNet
 from mcts import MCTS, action_probabilities
+from self_play import play_game, generate_self_play_data
+from evaluation import (
+    NetworkAgent, RandomAgent, play_match, elo_difference,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -138,3 +142,60 @@ def test_mcts_greedy_temperature_picks_single_move():
     _, probs = action_probabilities(root, temperature=0.0)
     assert pytest.approx(probs.max(), abs=1e-9) == 1.0
     assert (probs > 0).sum() == 1
+
+
+# --------------------------------------------------------------------------- #
+# Self-play (data generation + PGN)
+# --------------------------------------------------------------------------- #
+def _fast_config() -> Config:
+    """A tiny config so self-play/eval tests run in a couple of seconds."""
+    cfg = Config()
+    cfg.mcts.num_simulations = 8
+    cfg.training.max_moves = 12
+    cfg.training.temperature_moves = 4
+    return cfg
+
+
+def test_self_play_produces_consistent_examples():
+    """A self-play game yields well-formed, value-labelled examples + PGN."""
+    cfg = _fast_config()
+    net = ChessNet(cfg.network)
+    result = play_game(net, cfg, collect_pgn=True)
+
+    assert len(result.examples) > 0
+    for ex in result.examples:
+        assert ex.state.shape == (NUM_INPUT_PLANES, 8, 8)
+        assert ex.policy.shape == (NUM_ACTIONS,)
+        assert pytest.approx(ex.policy.sum(), abs=1e-5) == 1.0
+        assert ex.value in (-1.0, 0.0, 1.0)
+    # The PGN should be non-empty and carry our self-play event tag.
+    assert "RL-Chess-Engine self-play" in result.pgn
+
+
+def test_generate_self_play_data_returns_one_result_per_game():
+    cfg = _fast_config()
+    net = ChessNet(cfg.network)
+    results = generate_self_play_data(net, cfg, num_games=2)
+    assert len(results) == 2
+
+
+# --------------------------------------------------------------------------- #
+# Evaluation + Elo
+# --------------------------------------------------------------------------- #
+def test_elo_difference_monotonic_and_symmetric():
+    """Elo is 0 at 50%, positive above, negative below, and antisymmetric."""
+    assert elo_difference(0.5) == pytest.approx(0.0, abs=1e-6)
+    assert elo_difference(0.75) > 0
+    assert elo_difference(0.25) < 0
+    assert elo_difference(0.75) == pytest.approx(-elo_difference(0.25), abs=1e-6)
+
+
+def test_play_match_tallies_all_games():
+    """A match accounts for exactly the requested number of games."""
+    cfg = _fast_config()
+    net = ChessNet(cfg.network)
+    candidate = NetworkAgent(net, cfg, num_simulations=8)
+    result = play_match(candidate, RandomAgent(), cfg, num_games=4)
+    assert result.games == 4
+    assert result.wins + result.draws + result.losses == 4
+    assert 0.0 <= result.score <= 1.0
