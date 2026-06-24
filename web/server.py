@@ -30,6 +30,13 @@ import os
 import sys
 from typing import List, Optional
 
+# Keep the memory footprint small enough for a modest cloud instance (e.g. a
+# free 512 MB Render service): one BLAS/torch thread avoids large per-thread
+# buffer pools.  These must be set before numpy/torch are imported below.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 # Allow ``python web/server.py`` to import the engine modules in the repo root.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:

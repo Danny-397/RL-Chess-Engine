@@ -100,15 +100,26 @@ const API_BASE =
 const game = new Chess();
 let board = null;
 
-// Call a backend endpoint with the current position.
+// Call a backend endpoint with the current position. Returns {error: ...} on
+// failure (e.g. the backend is asleep/cold) so callers can show a message
+// instead of hanging silently.
 async function ask(endpoint, topN = 3) {
-  const res = await fetch(API_BASE + '/' + endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fen: game.fen(), simulations: SIMULATIONS, top_n: topN }),
-  });
-  return res.json();
+  try {
+    const res = await fetch(API_BASE + '/' + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen: game.fen(), simulations: SIMULATIONS, top_n: topN }),
+    });
+    if (!res.ok) return { error: 'HTTP ' + res.status };
+    return await res.json();
+  } catch (e) {
+    return { error: String(e) };
+  }
 }
+
+const BACKEND_DOWN_MSG =
+  'Could not reach the engine. If it is hosted on a free tier it may be waking ' +
+  'up — wait ~30s and try again.';
 
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
@@ -155,6 +166,12 @@ async function engineReply() {
   if (game.game_over()) { setStatus(gameOverMessage()); return; }
   setStatus('Engine is thinking…');
   const data = await ask('engine_move', 3);
+  if (data.error) {
+    // Undo the human's move so the position stays consistent and they can retry.
+    game.undo(); board.position(game.fen());
+    setStatus(BACKEND_DOWN_MSG);
+    return;
+  }
   if (data.game_over) { setStatus(gameOverMessage()); return; }
 
   const m = data.move;
@@ -194,6 +211,7 @@ document.getElementById('hintBtn').onclick = async () => {
   if (game.game_over()) { setStatus(gameOverMessage()); return; }
   setStatus('Analysing…');
   const data = await ask('analyze', 3);
+  if (data.error) { setStatus(BACKEND_DOWN_MSG); return; }
   setEval(data.white_win_probability);
   setMoves(data.suggestions);
   setStatus('Engine recommends: ' + (data.suggestions[0] ? data.suggestions[0].san : '—'));
