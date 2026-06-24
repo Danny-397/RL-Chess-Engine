@@ -146,6 +146,11 @@ Two gotchas the blueprint already handles:
 
 #### Frontend on Vercel + backend on Render (split deploy)
 
+> **Simplest option — you may not need Vercel at all.** The Render web service
+> above already serves the board UI (at `/`) *and* the API from one place, so the
+> Render URL is a complete, working site on its own. Only do the split below if you
+> specifically want the frontend on Vercel's CDN (e.g. to match the TradeBot setup).
+
 **Vercel cannot host the backend** — it runs Python only as serverless functions
 with a 250 MB unzipped limit, and PyTorch alone is far larger. The standard
 pattern is to host the **static board on Vercel** and keep the **PyTorch API on
@@ -153,9 +158,17 @@ Render**, with the page calling across to it:
 
 1. Deploy the backend to Render (above). Note its URL, e.g.
    `https://rl-chess-engine.onrender.com`.
-2. Deploy the frontend to Vercel: import this repo and set the project's
-   **Root Directory** to `web/static` (a [`vercel.json`](vercel.json) is also
-   included). Vercel serves `index.html` as a static site — no build, no Python.
+2. Deploy the frontend to Vercel: import this repo and **set the project's Root
+   Directory to `web/static`** (Settings → Build & Deployment → Root Directory).
+   That subfolder contains only `index.html`, so Vercel deploys it as a pure
+   static site — no build, no Python.
+
+   > ⚠️ If you deploy from the **repo root** instead, Vercel sees `requirements.txt`
+   > and tries to build the Python backend, erroring with *"main.py does not define
+   > a top-level app … add `[tool.vercel] entrypoint = web.server:app`"*. **Do not
+   > add that entrypoint** — it would try to bundle PyTorch into a serverless
+   > function and blow Vercel's 250 MB limit. Setting Root Directory to `web/static`
+   > makes the error disappear by skipping the Python code entirely.
 3. Tell the frontend where the backend is, either by:
    - opening it with `?api=https://rl-chess-engine.onrender.com`, or
    - editing `API_BASE` at the top of the `<script>` in
