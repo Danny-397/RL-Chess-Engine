@@ -31,6 +31,7 @@ from self_play import play_game, generate_self_play_data
 from evaluation import (
     NetworkAgent, RandomAgent, play_match, elo_difference,
 )
+from analysis import analyze_position, value_to_win_probability
 
 
 # --------------------------------------------------------------------------- #
@@ -199,3 +200,40 @@ def test_play_match_tallies_all_games():
     assert result.games == 4
     assert result.wins + result.draws + result.losses == 4
     assert 0.0 <= result.score <= 1.0
+
+
+# --------------------------------------------------------------------------- #
+# Analysis (hints / recommended moves)
+# --------------------------------------------------------------------------- #
+def test_win_probability_mapping():
+    """Value -> win-probability rescale hits the expected anchor points."""
+    assert value_to_win_probability(1.0) == pytest.approx(1.0)
+    assert value_to_win_probability(0.0) == pytest.approx(0.5)
+    assert value_to_win_probability(-1.0) == pytest.approx(0.0)
+
+
+def test_strip_bom_handles_both_encodings():
+    """Console input parsing tolerates a leading byte-order-mark in either form."""
+    from main import strip_bom
+
+    assert strip_bom("﻿hint") == "hint"          # UTF-16 BOM char
+    assert strip_bom("\xef\xbb\xbfhint") == "hint"     # UTF-8 BOM decoded bytes
+    assert strip_bom("e4") == "e4"                      # untouched when absent
+
+
+def test_analyze_position_recommends_legal_moves():
+    """Analysis returns legal, visit-ranked suggestions and a valid win prob."""
+    cfg = _fast_config()
+    net = ChessNet(cfg.network)
+    game = ChessGame()
+    analysis = analyze_position(net, game, cfg, top_n=3)
+
+    assert 0.0 <= analysis.win_probability <= 1.0
+    assert 1 <= len(analysis.suggestions) <= 3
+    legal = set(game.legal_moves())
+    visits = [s.visits for s in analysis.suggestions]
+    for s in analysis.suggestions:
+        assert s.move in legal
+        assert 0.0 <= s.win_probability <= 1.0
+    # Suggestions must be sorted by visit count, strongest first.
+    assert visits == sorted(visits, reverse=True)

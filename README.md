@@ -72,7 +72,8 @@ prove they're correct:
 | `self_play.py`   | Generates `(state, policy, value)` training data via self-play (sequential **and** multiprocessing), with PGN export. |
 | `training.py`    | Loss function, replay buffer, training loop, checkpointing, periodic evaluation. |
 | `evaluation.py`  | Pluggable agents, match play, and an approximate **Elo** estimate. |
-| `main.py`        | CLI entry point: `--mode train` / `--mode play` / `--mode eval`. |
+| `analysis.py`    | Engine move recommendations + win-probability (powers `hint`/`analyze`). |
+| `main.py`        | CLI entry point: `--mode train` / `play` / `eval` / `analyze`. |
 | `tests/`         | Pytest suite covering encoding, model, search, self-play and evaluation. |
 
 ---
@@ -103,10 +104,37 @@ python main.py --mode play --checkpoint checkpoints/example_checkpoint.pt
 ```
 
 You enter moves in standard algebraic notation (`e4`, `Nf3`, `O-O`, `exd5`,
-`e8=Q`). Type `board` to redraw, `quit` to resign.
+`e8=Q`). During your turn you can also type:
+
+- **`hint`** — the engine analyses *your* position and prints its top recommended
+  moves (ranked by search effort) plus your win probability;
+- **`eval`** — show the engine's evaluation of the current position;
+- `board` to redraw, `quit` to resign.
+
+The engine also reports its own win estimate each time it moves.
 
 > The bundled checkpoint is trained only briefly (it's a *demonstration*, not a
 > strong player). Train longer for a tougher opponent.
+
+### Analyse any position
+
+Get the engine's evaluation and recommended moves for a position without playing
+a whole game — defaults to the opening, or pass any FEN:
+
+```bash
+python main.py --mode analyze --checkpoint checkpoints/best.pt
+python main.py --mode analyze --fen "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1" --top-n 5
+```
+
+Example output:
+
+```
+Engine eval: +0.18  (win probability for side to move: 59%)
+Recommended moves:
+  1. Nf3      62% of search, eval +0.18
+  2. e4       21% of search, eval +0.12
+  3. d4       11% of search, eval +0.09
+```
 
 ### Train your own engine
 

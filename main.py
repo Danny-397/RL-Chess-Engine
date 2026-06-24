@@ -79,6 +79,20 @@ def run_train(args: argparse.Namespace) -> None:
 # --------------------------------------------------------------------------- #
 # play mode
 # --------------------------------------------------------------------------- #
+def strip_bom(text: str) -> str:
+    """Remove a leading byte-order-mark from console input, if present.
+
+    Some Windows shells prepend a BOM to the first line when input is piped in.
+    It can arrive either as the Unicode char ``U+FEFF`` or, when the UTF-8 BOM
+    bytes ``EF BB BF`` are decoded one-by-one, as the three characters
+    ``\\xef\\xbb\\xbf``.  We handle both so commands like ``hint`` still parse.
+    """
+    for bom in ("﻿", "\xef\xbb\xbf"):
+        if text.startswith(bom):
+            return text[len(bom):]
+    return text
+
+
 def _load_engine(config: Config, checkpoint: str):
     """Load a network for play, falling back to an untrained one if needed."""
     from training import load_checkpoint  # lazy import (keeps startup snappy)
@@ -94,16 +108,6 @@ def _load_engine(config: Config, checkpoint: str):
     return ChessNet(config.network).to(config.resolved_device()).eval()
 
 
-def _engine_move(network, game: ChessGame, config: Config):
-    """Pick the engine's move: greedy MCTS with no root exploration noise."""
-    from mcts import MCTS, action_probabilities
-
-    mcts = MCTS(network, config.mcts)
-    root = mcts.run(game, add_exploration_noise=False)
-    moves, probs = action_probabilities(root, temperature=0.0)  # greedy
-    return moves[int(probs.argmax())]
-
-
 def run_play(args: argparse.Namespace) -> None:
     """Play a console game: human (SAN input) vs. the engine."""
     config = _build_config(args)
@@ -114,7 +118,9 @@ def run_play(args: argparse.Namespace) -> None:
 
     print("\nYou are playing as", "White" if human_is_white else "Black")
     print("Enter moves in algebraic notation (e.g. e4, Nf3, O-O).")
-    print("Type 'quit' to resign, 'board' to redraw the position.\n")
+    print("Commands: 'hint' = ask the engine for recommended moves,")
+    print("          'eval' = show the engine's evaluation of the position,")
+    print("          'board' = redraw, 'quit' = resign.\n")
 
     while not game.is_terminal():
         print(game)
@@ -124,13 +130,22 @@ def run_play(args: argparse.Namespace) -> None:
         # boolean ``game.turn`` can be compared directly against ``human_is_white``.
         if game.turn == human_is_white:
             # ---- human's turn ----
-            # ``﻿`` strips a stray byte-order-mark that some Windows
-            # shells prepend when input is piped in.
-            user_input = input("Your move: ").strip().lstrip("﻿")
-            if user_input.lower() in {"quit", "resign", "exit"}:
+            # ```` (byte-order-mark) is stripped because some Windows
+            # shells prepend one to the first line when input is piped in.
+            user_input = strip_bom(input("Your move: ")).strip()
+            command = user_input.lower()
+            if command in {"quit", "resign", "exit"}:
                 print("You resigned. Good game!")
                 return
-            if user_input.lower() == "board":
+            if command == "board":
+                continue
+            if command in {"hint", "eval", "analyze"}:
+                # Ask the engine to assess *your* position and suggest moves.
+                from analysis import analyze_position
+
+                print("Analysing...")
+                analysis = analyze_position(network, game, config)
+                print(analysis.render() + "\n")
                 continue
             try:
                 game.push_san(user_input)
@@ -139,11 +154,14 @@ def run_play(args: argparse.Namespace) -> None:
                 continue
         else:
             # ---- engine's turn ----
+            from analysis import analyze_position
+
             print("Engine is thinking...")
-            move = _engine_move(network, game, config)
-            san = game.board.san(move)
-            game.push(move)
-            print(f"Engine plays: {san}\n")
+            analysis = analyze_position(network, game, config)
+            best = analysis.suggestions[0]  # most-searched move
+            game.push(best.move)
+            print(f"Engine plays: {best.san}  "
+                  f"(its win estimate: {best.win_probability:.0%})\n")
 
     # ---- game over ----
     print(game)
@@ -154,6 +172,29 @@ def run_play(args: argparse.Namespace) -> None:
         print(f"Checkmate -- {winner} wins.")
     else:
         print("Draw.")
+
+
+# --------------------------------------------------------------------------- #
+# analyze mode
+# --------------------------------------------------------------------------- #
+def run_analyze(args: argparse.Namespace) -> None:
+    """Print the engine's evaluation and recommended moves for one position.
+
+    The position defaults to the standard opening but can be any legal position
+    supplied as a FEN string via ``--fen``.
+    """
+    from analysis import analyze_position
+
+    config = _build_config(args)
+    network = _load_engine(config, args.checkpoint)
+
+    board = chess.Board(args.fen) if args.fen else chess.Board()
+    game = ChessGame(board)
+
+    print(game)
+    print(f"\n{'White' if game.turn == chess.WHITE else 'Black'} to move.\n")
+    analysis = analyze_position(network, game, config, top_n=args.top_n)
+    print(analysis.render(max_moves=args.top_n))
 
 
 # --------------------------------------------------------------------------- #
@@ -203,8 +244,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--mode", choices=["train", "play", "eval"], default="train",
-        help="train via self-play, play against the engine, or evaluate strength.",
+        "--mode", choices=["train", "play", "eval", "analyze"], default="train",
+        help="train, play against the engine, evaluate strength, or analyze a position.",
     )
     # training overrides
     parser.add_argument("--iterations", type=int, default=None,
@@ -234,6 +275,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of games to play (eval mode).")
     parser.add_argument("--pgn-out", type=str, default=None,
                         help="write evaluated games to this PGN file (eval mode).")
+    # analyze options
+    parser.add_argument("--fen", type=str, default=None,
+                        help="FEN of the position to analyze (analyze mode).")
+    parser.add_argument("--top-n", type=int, default=5,
+                        help="number of recommended moves to show (analyze mode).")
     return parser
 
 
@@ -244,6 +290,8 @@ def main() -> None:
         run_train(args)
     elif args.mode == "eval":
         run_eval(args)
+    elif args.mode == "analyze":
+        run_analyze(args)
     else:
         run_play(args)
 
