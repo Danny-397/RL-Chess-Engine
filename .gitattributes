@@ -1,0 +1,7 @@
+# Normalise line endings: store text as LF in the repo, regardless of OS.
+* text=auto eol=lf
+
+# Treat these as binary (never touch line endings / never diff as text).
+*.pt binary
+*.png binary
+*.ipynb -text

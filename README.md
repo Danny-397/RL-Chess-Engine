@@ -251,10 +251,16 @@ always run to the move cap and end in *draws*, so the value target is almost alw
 keeps games drawish. Escaping this requires **far more (and more decisive) self-play
 games** than a single CPU can produce in reasonable time.
 
-**To train a genuinely strong engine**, run on a GPU (e.g. a free Google Colab T4)
-with parallel self-play (`--workers`) and many more games per iteration. The learning
-machinery here is correct and complete — the limiting factor is raw compute, not the
-algorithm.
+**To train a genuinely strong engine**, run on a GPU with more self-play. A ready-made
+Colab notebook does exactly this on free, dedicated compute (so it won't crash from a
+laptop's memory pressure or stall when the machine sleeps):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Danny-397/RL-Chess-Engine/blob/main/notebooks/train_on_colab.ipynb)
+
+It clones the repo, trains with deeper search and more games per iteration, plots the
+learning curves, measures Elo vs. random, and lets you download the trained checkpoint to
+drop in as `checkpoints/example_checkpoint.pt`. The learning machinery here is correct and
+complete — the limiting factor is raw compute, not the algorithm.
 
 ---
 
