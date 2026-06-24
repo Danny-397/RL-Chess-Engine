@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RL-Chess-Engine</title>
+
+<!-- chessboard.js (board UI) + chess.js (rules) + jQuery (chessboard.js dependency) -->
+<link rel="stylesheet"
+      href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+<style>
+  :root { --bg:#0f1320; --panel:#1b2236; --ink:#e8ecf6; --muted:#9aa7c7; --accent:#5b8cff; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--ink); min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; padding: 24px;
+  }
+  h1 { font-weight: 700; letter-spacing: .3px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .layout { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  #board { width: 440px; }
+  .panel {
+    background: var(--panel); border-radius: 12px; padding: 18px 20px;
+    width: 300px; box-shadow: 0 6px 24px rgba(0,0,0,.3);
+  }
+  .panel h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .08em;
+              color: var(--muted); margin: 0 0 12px; }
+  .controls { display: flex; gap: 8px; margin-bottom: 16px; }
+  button {
+    background: var(--accent); color: white; border: 0; border-radius: 8px;
+    padding: 9px 14px; font-size: 14px; cursor: pointer; font-weight: 600;
+  }
+  button.secondary { background: #2c3654; }
+  button:disabled { opacity: .5; cursor: default; }
+  /* Evaluation bar (White advantage grows the white portion). */
+  .evalbar { height: 16px; border-radius: 8px; overflow: hidden;
+             background: #11151f; display: flex; margin-bottom: 6px; }
+  .evalbar .white { background: #e8ecf6; }
+  .evalbar .black { background: #2b3149; }
+  .evaltext { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  ol.moves { list-style: none; padding: 0; margin: 0; }
+  ol.moves li { display: flex; justify-content: space-between; align-items: center;
+                padding: 9px 10px; border-radius: 8px; margin-bottom: 6px;
+                background: #141a2b; font-variant-numeric: tabular-nums; }
+  ol.moves li .san { font-weight: 700; }
+  ol.moves li .meta { color: var(--muted); font-size: 12px; }
+  #status { margin-top: 12px; color: var(--muted); font-size: 14px; min-height: 20px; }
+  .badge { display:inline-block; font-size:11px; color:var(--muted);
+           border:1px solid #2c3654; border-radius:6px; padding:2px 6px; margin-left:6px;}
+</style>
+</head>
+<body>
+  <h1>RL-Chess-Engine <span class="badge">AlphaZero-style</span></h1>
+  <p class="subtitle">Play the self-taught engine and see the moves it recommends.</p>
+
+  <div class="layout">
+    <div>
+      <div id="board"></div>
+      <div id="status">Your move. Drag a white piece to begin.</div>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <button id="newBtn">New game</button>
+        <button id="hintBtn" class="secondary">Hint</button>
+        <button id="flipBtn" class="secondary">Flip</button>
+      </div>
+
+      <h2>Evaluation</h2>
+      <div class="evalbar">
+        <div class="white" id="evalWhite" style="width:50%"></div>
+        <div class="black" id="evalBlack" style="width:50%"></div>
+      </div>
+      <div class="evaltext" id="evalText">Even (50%)</div>
+
+      <h2>Recommended moves</h2>
+      <ol class="moves" id="moves"><li><span class="meta">Press “Hint”.</span></li></ol>
+    </div>
+  </div>
+
+<script>
+// --- engine search budget (simulations). Lower = snappier, higher = stronger. ---
+const SIMULATIONS = 80;
+
+const game = new Chess();
+let board = null;
+
+// Call a backend endpoint with the current position.
+async function ask(endpoint, topN = 3) {
+  const res = await fetch('/' + endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fen: game.fen(), simulations: SIMULATIONS, top_n: topN }),
+  });
+  return res.json();
+}
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+// Update the evaluation bar from a White-perspective win probability in [0,1].
+function setEval(whiteWinProb) {
+  if (whiteWinProb === null || whiteWinProb === undefined) return;
+  const pct = Math.round(whiteWinProb * 100);
+  document.getElementById('evalWhite').style.width = pct + '%';
+  document.getElementById('evalBlack').style.width = (100 - pct) + '%';
+  const txt = pct === 50 ? 'Even (50%)'
+            : pct > 50 ? 'White ' + pct + '%'
+            : 'Black ' + (100 - pct) + '%';
+  document.getElementById('evalText').textContent = txt;
+}
+
+// Render the engine's recommended moves into the side panel.
+function setMoves(suggestions) {
+  const ol = document.getElementById('moves');
+  ol.innerHTML = '';
+  if (!suggestions || suggestions.length === 0) {
+    ol.innerHTML = '<li><span class="meta">No moves.</span></li>';
+    return;
+  }
+  suggestions.forEach((s, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="san">${i + 1}. ${s.san}</span>` +
+      `<span class="meta">${Math.round(s.visit_fraction * 100)}% search · ` +
+      `eval ${s.value >= 0 ? '+' : ''}${s.value.toFixed(2)}</span>`;
+    ol.appendChild(li);
+  });
+}
+
+function gameOverMessage() {
+  if (game.in_checkmate()) return (game.turn() === 'w' ? 'Black' : 'White') + ' wins by checkmate.';
+  if (game.in_stalemate()) return 'Draw by stalemate.';
+  if (game.in_threefold_repetition()) return 'Draw by repetition.';
+  if (game.insufficient_material()) return 'Draw by insufficient material.';
+  if (game.in_draw()) return 'Draw.';
+  return 'Game over.';
+}
+
+// After the human moves, ask the engine to reply.
+async function engineReply() {
+  if (game.game_over()) { setStatus(gameOverMessage()); return; }
+  setStatus('Engine is thinking…');
+  const data = await ask('engine_move', 3);
+  if (data.game_over) { setStatus(gameOverMessage()); return; }
+
+  const m = data.move;
+  game.move({ from: m.uci.slice(0, 2), to: m.uci.slice(2, 4),
+              promotion: m.uci.length > 4 ? m.uci[4] : undefined });
+  board.position(game.fen());
+  setEval(data.white_win_probability);
+  setMoves(data.suggestions);
+  setStatus(game.game_over() ? gameOverMessage()
+            : `Engine played ${m.san} (it estimates ${Math.round(m.win_probability * 100)}% to win). Your move.`);
+}
+
+// chessboard.js callbacks ---------------------------------------------------
+function onDragStart(source, piece) {
+  // Only let the human move when it's not game over, and only their colour.
+  if (game.game_over()) return false;
+  if (piece.search(/^b/) !== -1) return false;  // human plays White
+}
+
+function onDrop(source, target) {
+  const move = game.move({ from: source, to: target, promotion: 'q' });
+  if (move === null) return 'snapback';  // illegal move -> snap the piece back
+  setStatus('You played ' + move.san + '.');
+  window.setTimeout(engineReply, 150);
+}
+
+function onSnapEnd() { board.position(game.fen()); }
+
+// Buttons -------------------------------------------------------------------
+document.getElementById('newBtn').onclick = () => {
+  game.reset(); board.start();
+  setEval(0.5); setMoves([]);
+  document.getElementById('moves').innerHTML = '<li><span class="meta">Press “Hint”.</span></li>';
+  setStatus('New game. Your move.');
+};
+document.getElementById('hintBtn').onclick = async () => {
+  if (game.game_over()) { setStatus(gameOverMessage()); return; }
+  setStatus('Analysing…');
+  const data = await ask('analyze', 3);
+  setEval(data.white_win_probability);
+  setMoves(data.suggestions);
+  setStatus('Engine recommends: ' + (data.suggestions[0] ? data.suggestions[0].san : '—'));
+};
+document.getElementById('flipBtn').onclick = () => board.flip();
+
+// Init ----------------------------------------------------------------------
+board = Chessboard('board', {
+  draggable: true,
+  position: 'start',
+  pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+  onDragStart, onDrop, onSnapEnd,
+});
+</script>
+</body>
+</html>

@@ -73,7 +73,8 @@ prove they're correct:
 | `training.py`    | Loss function, replay buffer, training loop, checkpointing, periodic evaluation. |
 | `evaluation.py`  | Pluggable agents, match play, and an approximate **Elo** estimate. |
 | `analysis.py`    | Engine move recommendations + win-probability (powers `hint`/`analyze`). |
-| `main.py`        | CLI entry point: `--mode train` / `play` / `eval` / `analyze`. |
+| `main.py`        | CLI entry point: `--mode train` / `play` / `eval` / `analyze` / `serve`. |
+| `web/`           | Optional FastAPI backend + chessboard.js front-end (browser play). |
 | `tests/`         | Pytest suite covering encoding, model, search, self-play and evaluation. |
 
 ---
@@ -94,7 +95,23 @@ laptop CPU.
 
 ## Quick start
 
-### Play against the engine
+### Play in the browser (web UI)
+
+The most demoable way to play: a drag-and-drop board with a live evaluation bar
+and a "recommended moves" panel, served by a small FastAPI backend that wraps the
+engine.
+
+```bash
+pip install fastapi "uvicorn[standard]"   # one-time, optional web extras
+python main.py --mode serve               # then open http://127.0.0.1:8000
+```
+
+You play White by dragging pieces; the engine replies and shows its win estimate,
+the **Hint** button asks the engine to recommend moves for your position, and the
+eval bar tracks who's ahead. The backend is stateless (the browser sends the
+position as FEN), and it reuses the exact same `analysis.py` logic as the console.
+
+### Play against the engine (console)
 
 A small, ready-to-use checkpoint ships in `checkpoints/example_checkpoint.pt` so
 you can play immediately:

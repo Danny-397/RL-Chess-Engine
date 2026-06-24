@@ -175,6 +175,32 @@ def run_play(args: argparse.Namespace) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# serve mode (web UI)
+# --------------------------------------------------------------------------- #
+def run_serve(args: argparse.Namespace) -> None:
+    """Launch the browser-based UI (FastAPI + chessboard.js).
+
+    The web server reads its checkpoint / search budget from environment
+    variables, so we forward the CLI options through ``os.environ`` before
+    importing it.  Requires the optional web dependencies (``fastapi``,
+    ``uvicorn``) -- install them with ``pip install fastapi "uvicorn[standard]"``.
+    """
+    os.environ["RLCHESS_CHECKPOINT"] = args.checkpoint
+    if args.simulations is not None:
+        os.environ["RLCHESS_SIMULATIONS"] = str(args.simulations)
+
+    try:
+        from web.server import main as serve_main
+    except ImportError as exc:  # pragma: no cover - depends on optional extras
+        raise SystemExit(
+            "The web UI needs extra packages. Install them with:\n"
+            '    pip install fastapi "uvicorn[standard]"\n'
+            f"(import error: {exc})"
+        )
+    serve_main()
+
+
+# --------------------------------------------------------------------------- #
 # analyze mode
 # --------------------------------------------------------------------------- #
 def run_analyze(args: argparse.Namespace) -> None:
@@ -244,8 +270,8 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--mode", choices=["train", "play", "eval", "analyze"], default="train",
-        help="train, play against the engine, evaluate strength, or analyze a position.",
+        "--mode", choices=["train", "play", "eval", "analyze", "serve"], default="train",
+        help="train, play, evaluate strength, analyze a position, or serve the web UI.",
     )
     # training overrides
     parser.add_argument("--iterations", type=int, default=None,
@@ -292,6 +318,8 @@ def main() -> None:
         run_eval(args)
     elif args.mode == "analyze":
         run_analyze(args)
+    elif args.mode == "serve":
+        run_serve(args)
     else:
         run_play(args)
 
