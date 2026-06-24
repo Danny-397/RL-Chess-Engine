@@ -1,0 +1,7 @@
+# Core dependencies for the AlphaZero-style chess engine.
+# Tested with Python 3.10+.
+
+torch>=2.0          # neural network + autograd
+python-chess>=1.11  # board representation, legal moves, terminal detection
+numpy>=1.23         # tensor/array plumbing between chess and torch
+pytest>=7.0         # test suite (development only)

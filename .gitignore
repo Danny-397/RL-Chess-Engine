@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+env/
+
+# Training artifacts
+logs/
+checkpoints/*.pt
+# ...but keep the example checkpoint so reviewers can play immediately.
+!checkpoints/example_checkpoint.pt
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
