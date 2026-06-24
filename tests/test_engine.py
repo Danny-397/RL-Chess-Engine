@@ -126,6 +126,33 @@ def test_stalemate_is_a_draw():
     assert game.result_white() == 0.0
 
 
+def test_material_score_perspective():
+    """material_score is 0 at the start and signed by who is up material."""
+    from chess_game import material_score
+    assert material_score(chess.Board()) == pytest.approx(0.0)
+    # White (to move) is a whole queen up -> clearly positive.
+    assert material_score(chess.Board("4k3/8/8/8/8/8/8/3QK3 w - - 0 1")) > 0.5
+    # White (to move) is a whole queen down -> clearly negative.
+    assert material_score(chess.Board("3qk3/8/8/8/8/8/8/4K3 w - - 0 1")) < -0.5
+
+
+def test_material_assist_captures_hanging_piece():
+    """With the material assist on, the search grabs a free queen.
+
+    This is the behaviour that makes the engine playable before the network is
+    trained: even an *untrained* net, guided by the material heuristic, must
+    prefer winning a hanging queen over an idle king move.
+    """
+    cfg = Config()
+    cfg.mcts.num_simulations = 128
+    cfg.mcts.material_weight = 0.9
+    net = ChessNet(cfg.network)  # untrained on purpose
+    # White to move: e4 pawn can play exd5, capturing an undefended queen.
+    game = ChessGame(chess.Board("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1"))
+    best = analyze_position(net, game, cfg, top_n=1).suggestions[0]
+    assert best.move.to_square == chess.D5  # captured the queen
+
+
 def test_insufficient_material_is_a_draw():
     """King vs King is an immediate, unwinnable draw."""
     game = ChessGame(chess.Board("8/8/8/4k3/8/8/4K3/8 w - - 0 1"))

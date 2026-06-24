@@ -55,6 +55,8 @@ def _build_config(args: argparse.Namespace) -> Config:
         config.training.games_per_iteration = args.games
     if args.simulations is not None:
         config.mcts.num_simulations = args.simulations
+    if args.material_weight is not None:
+        config.mcts.material_weight = args.material_weight
     if args.device is not None:
         config.training.device = args.device
     if args.workers is not None:
@@ -122,6 +124,8 @@ def _load_engine(config: Config, checkpoint: str):
 def run_play(args: argparse.Namespace) -> None:
     """Play a console game: human (SAN input) vs. the engine."""
     config = _build_config(args)
+    if args.material_weight is None:  # default the assist ON for a real opponent
+        config.mcts.material_weight = 0.85
     network = _load_engine(config, args.checkpoint)
 
     human_is_white = args.color.lower() == "white"
@@ -223,6 +227,8 @@ def run_analyze(args: argparse.Namespace) -> None:
     from analysis import analyze_position
 
     config = _build_config(args)
+    if args.material_weight is None:  # default the assist ON for analysis too
+        config.mcts.material_weight = 0.85
     network = _load_engine(config, args.checkpoint)
 
     board = chess.Board(args.fen) if args.fen else chess.Board()
@@ -291,6 +297,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="self-play games per iteration (train mode).")
     parser.add_argument("--simulations", type=int, default=None,
                         help="MCTS simulations per move (all modes).")
+    parser.add_argument("--material-weight", type=float, default=None,
+                        help="blend a material heuristic into the search, 0..1 "
+                             "(play/analyze default to 0.85 for a stronger "
+                             "opponent; training stays at 0.0).")
     parser.add_argument("--device", type=str, default=None,
                         help="'cpu', 'cuda', or 'auto'.")
     parser.add_argument("--workers", type=int, default=None,

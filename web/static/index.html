@@ -50,6 +50,16 @@
   ol.moves li .san { font-weight: 700; }
   ol.moves li .meta { color: var(--muted); font-size: 12px; }
   #status { margin-top: 12px; color: var(--muted); font-size: 14px; min-height: 20px; }
+  .hidden { display: none !important; }
+  .gameover {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 440px; margin-bottom: 12px; padding: 12px 16px; border-radius: 10px;
+    background: linear-gradient(90deg, #2e7d32, #1b5e20); color: #fff;
+    font-weight: 700; font-size: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  .gameover.loss { background: linear-gradient(90deg, #b71c1c, #7f0000); }
+  .gameover.draw { background: linear-gradient(90deg, #455a64, #263238); }
+  .gameover button { background: rgba(255,255,255,.2); }
   .badge { display:inline-block; font-size:11px; color:var(--muted);
            border:1px solid #2c3654; border-radius:6px; padding:2px 6px; margin-left:6px;}
 </style>
@@ -60,6 +70,10 @@
 
   <div class="layout">
     <div>
+      <div id="gameover" class="gameover hidden">
+        <span id="gameoverText"></span>
+        <button id="gameoverNew">New game</button>
+      </div>
       <div id="board"></div>
       <div id="status">Your move. Drag a white piece to begin.</div>
     </div>
@@ -161,6 +175,22 @@ function gameOverMessage() {
   return 'Game over.';
 }
 
+// Show the prominent end-of-game banner. The human plays White, so a checkmate
+// where it's Black to move means the human won.
+function showGameOver() {
+  const banner = document.getElementById('gameover');
+  let kind = 'draw';
+  if (game.in_checkmate()) kind = (game.turn() === 'b') ? 'win' : 'loss';
+  const prefix = kind === 'win' ? '🎉 You win! ' : kind === 'loss' ? 'You lose. ' : '';
+  document.getElementById('gameoverText').textContent = prefix + gameOverMessage();
+  banner.className = 'gameover ' + kind;   // also clears the 'hidden' class
+  setStatus(gameOverMessage());
+}
+
+function hideGameOver() {
+  document.getElementById('gameover').className = 'gameover hidden';
+}
+
 // After the human moves, ask the engine to reply.
 async function engineReply() {
   if (game.game_over()) { setStatus(gameOverMessage()); return; }
@@ -180,8 +210,8 @@ async function engineReply() {
   board.position(game.fen());
   setEval(data.white_win_probability);
   setMoves(data.suggestions);
-  setStatus(game.game_over() ? gameOverMessage()
-            : `Engine played ${m.san} (it estimates ${Math.round(m.win_probability * 100)}% to win). Your move.`);
+  if (game.game_over()) { showGameOver(); return; }
+  setStatus(`Engine played ${m.san} (it estimates ${Math.round(m.win_probability * 100)}% to win). Your move.`);
 }
 
 // chessboard.js callbacks ---------------------------------------------------
@@ -195,18 +225,24 @@ function onDrop(source, target) {
   const move = game.move({ from: source, to: target, promotion: 'q' });
   if (move === null) return 'snapback';  // illegal move -> snap the piece back
   setStatus('You played ' + move.san + '.');
+  // If your move ended the game (e.g. checkmate), announce it -- don't ask the
+  // engine to reply to a finished position.
+  if (game.game_over()) { window.setTimeout(showGameOver, 50); return; }
   window.setTimeout(engineReply, 150);
 }
 
 function onSnapEnd() { board.position(game.fen()); }
 
 // Buttons -------------------------------------------------------------------
-document.getElementById('newBtn').onclick = () => {
+function newGame() {
   game.reset(); board.start();
+  hideGameOver();
   setEval(0.5); setMoves([]);
   document.getElementById('moves').innerHTML = '<li><span class="meta">Press “Hint”.</span></li>';
   setStatus('New game. Your move.');
-};
+}
+document.getElementById('newBtn').onclick = newGame;
+document.getElementById('gameoverNew').onclick = newGame;
 document.getElementById('hintBtn').onclick = async () => {
   if (game.game_over()) { setStatus(gameOverMessage()); return; }
   setStatus('Analysing…');

@@ -59,10 +59,14 @@ from analysis import analyze_position, value_to_win_probability
 # Engine setup (load the model once at startup)
 # --------------------------------------------------------------------------- #
 _CHECKPOINT = os.environ.get("RLCHESS_CHECKPOINT", "checkpoints/example_checkpoint.pt")
-_SIMULATIONS = int(os.environ.get("RLCHESS_SIMULATIONS", "100"))
+_SIMULATIONS = int(os.environ.get("RLCHESS_SIMULATIONS", "120"))
+# Material assist on by default so the deployed bot plays real chess (captures
+# hanging pieces, avoids blunders) even with a lightly-trained network.
+_MATERIAL_WEIGHT = float(os.environ.get("RLCHESS_MATERIAL_WEIGHT", "0.85"))
 
 _config = Config()
 _config.mcts.num_simulations = _SIMULATIONS
+_config.mcts.material_weight = _MATERIAL_WEIGHT
 
 
 def _load_network() -> ChessNet:

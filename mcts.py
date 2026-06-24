@@ -37,7 +37,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import chess
 
-from chess_game import ChessGame
+from chess_game import ChessGame, material_score
 from config import MCTSConfig
 
 
@@ -176,6 +176,13 @@ class MCTS:
             of the side to move -- ready to be backed up.
         """
         policy_logits, value = self.network.predict(game.encode_state())
+
+        # Play-time assist: blend in a material heuristic so the search wins
+        # material and captures hanging pieces even before the network is fully
+        # trained.  Disabled (weight 0) during self-play to keep training pure.
+        w = self.config.material_weight
+        if w > 0.0:
+            value = (1.0 - w) * value + w * material_score(game.board)
 
         legal_moves = game.legal_moves()
         # Gather the priors for exactly the legal moves and softmax over *those*

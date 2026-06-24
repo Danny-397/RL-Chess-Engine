@@ -111,8 +111,17 @@ python main.py --mode serve               # then open http://127.0.0.1:8000
 
 You play White by dragging pieces; the engine replies and shows its win estimate,
 the **Hint** button asks the engine to recommend moves for your position, and the
-eval bar tracks who's ahead. The backend is stateless (the browser sends the
-position as FEN), and it reuses the exact same `analysis.py` logic as the console.
+eval bar tracks who's ahead. A banner announces checkmate/draw. The backend is
+stateless (the browser sends the position as FEN), and it reuses the exact same
+`analysis.py` logic as the console.
+
+> **Why the bot plays sensibly even though the bundled net is barely trained:**
+> for *play* (not training) the search blends in a simple material heuristic
+> (`MCTSConfig.material_weight`, default `0.85` in play/serve, `0.0` in training).
+> This makes it capture hanging pieces, avoid blunders and find basic mates, so
+> it's a real opponent before a full GPU training run. Set
+> `--material-weight 0` (CLI) or `RLCHESS_MATERIAL_WEIGHT=0` (server) to play the
+> pure from-scratch network instead.
 
 #### Deploy the web UI to Render
 

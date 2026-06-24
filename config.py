@@ -88,6 +88,14 @@ class MCTSConfig:
     dirichlet_alpha: float = 0.3
     dirichlet_epsilon: float = 0.25
 
+    #: Play-time assist: blend a simple material count into each leaf evaluation,
+    #: ``value = (1 - w) * network_value + w * material``.  ``0.0`` is pure
+    #: AlphaZero (used for *training*, so self-play stays "zero-knowledge").  A
+    #: value like ``0.85`` gives a much stronger opponent *before* the network is
+    #: fully trained -- it makes the search actually win material, capture hanging
+    #: pieces and find basic mates.  Used for play / analysis, not self-play.
+    material_weight: float = 0.0
+
 
 # --------------------------------------------------------------------------- #
 # Training / self-play loop

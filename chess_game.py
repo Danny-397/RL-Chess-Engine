@@ -38,12 +38,41 @@ It is responsible for three things:
 
 from __future__ import annotations
 
+import math
 from typing import List, Optional
 
 import numpy as np
 import chess
 
 from config import NUM_INPUT_PLANES, NUM_ACTIONS
+
+
+# Standard relative piece values (the king is priceless and never captured).
+_PIECE_VALUES = {
+    chess.PAWN: 1.0,
+    chess.KNIGHT: 3.0,
+    chess.BISHOP: 3.0,
+    chess.ROOK: 5.0,
+    chess.QUEEN: 9.0,
+    chess.KING: 0.0,
+}
+
+
+def material_score(board: chess.Board) -> float:
+    """Material balance from the side-to-move's perspective, squashed to [-1, 1].
+
+    A positive value means the side to move is *up* material.  The raw pawn-count
+    difference is passed through ``tanh`` so it lands in the same ``[-1, 1]`` range
+    as the network's value head (a queen up ≈ +0.8, a pawn up ≈ +0.12), letting
+    the two be blended directly during search (see ``MCTSConfig.material_weight``).
+    """
+    us, them = board.turn, not board.turn
+    diff = 0.0
+    for piece_type, value in _PIECE_VALUES.items():
+        diff += value * (
+            len(board.pieces(piece_type, us)) - len(board.pieces(piece_type, them))
+        )
+    return math.tanh(diff / 8.0)
 
 
 # --------------------------------------------------------------------------- #
