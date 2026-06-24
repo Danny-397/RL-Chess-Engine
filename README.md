@@ -233,6 +233,29 @@ This produces two plots — training loss over time, and estimated Elo vs. rando
 over time — which together answer the only questions that matter: *is the network
 fitting the data, and is the engine actually getting stronger?*
 
+### Training results (and an honest note on scale)
+
+Below is a short **CPU** training run (~19 iterations, ~100 self-play games):
+
+![training progress](assets/training_progress.png)
+
+The **policy loss drops sharply** (4.7 → ~0.9): the network is clearly learning to
+imitate the search. But two things are visible and worth being honest about:
+
+1. The **value loss sits near zero**, and
+2. the engine does **not yet beat the random baseline** (Elo ≈ 0).
+
+Both have the same cause — a **draw cycle**. A weak engine's self-play games almost
+always run to the move cap and end in *draws*, so the value target is almost always
+`0`; the value head learns only to predict "even," which keeps the search weak, which
+keeps games drawish. Escaping this requires **far more (and more decisive) self-play
+games** than a single CPU can produce in reasonable time.
+
+**To train a genuinely strong engine**, run on a GPU (e.g. a free Google Colab T4)
+with parallel self-play (`--workers`) and many more games per iteration. The learning
+machinery here is correct and complete — the limiting factor is raw compute, not the
+algorithm.
+
 ---
 
 ## How it works (the 3-minute version)
