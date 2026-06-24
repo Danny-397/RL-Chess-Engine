@@ -114,6 +114,36 @@ the **Hint** button asks the engine to recommend moves for your position, and th
 eval bar tracks who's ahead. The backend is stateless (the browser sends the
 position as FEN), and it reuses the exact same `analysis.py` logic as the console.
 
+#### Deploy the web UI to Render
+
+A [`render.yaml`](render.yaml) blueprint is included, so you can host the board
+online:
+
+1. Push this repo to GitHub (already done if you cloned it from there).
+2. On [Render](https://render.com): **New + → Blueprint**, pick this repo, and
+   apply. Render reads `render.yaml` and provisions the web service.
+3. Open the URL Render gives you and play.
+
+Or configure a **Web Service** manually with these settings:
+
+| Setting | Value |
+|---|---|
+| Build command | `pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt` |
+| Start command | `uvicorn web.server:app --host 0.0.0.0 --port $PORT` |
+| Env var | `RLCHESS_SIMULATIONS=60` (lower = faster responses) |
+
+Two gotchas the blueprint already handles:
+
+- **CPU-only PyTorch.** A plain `pip install torch` pulls a multi-gigabyte CUDA
+  wheel that overflows Render's build; the `--index-url .../whl/cpu` keeps it small.
+- **Port binding.** Render injects `$PORT`; the start command binds `0.0.0.0:$PORT`
+  (the local default is `127.0.0.1:8000`).
+
+> **Memory note:** PyTorch needs a fair bit of RAM. Render's *free* instance
+> (512 MB) may OOM when the model loads — if so, upgrade to a larger instance, or
+> lower `RLCHESS_SIMULATIONS`. The committed `example_checkpoint.pt` is served by
+> default; set `RLCHESS_CHECKPOINT` to point at a stronger one.
+
 ### Play against the engine (console)
 
 A small, ready-to-use checkpoint ships in `checkpoints/example_checkpoint.pt` so
