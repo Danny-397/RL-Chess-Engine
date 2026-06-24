@@ -1,0 +1,31 @@
+name: tests
+
+# Run the test suite on every push and pull request so the engine's core
+# invariants (move encoding round-trips, perspective handling, MCTS output,
+# self-play, evaluation) are continuously verified.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch keeps the CI install small and fast.
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install python-chess numpy pytest
+
+      - name: Run tests
+        run: pytest -q

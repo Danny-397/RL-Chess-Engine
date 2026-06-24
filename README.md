@@ -1,5 +1,8 @@
 # RL-Chess-Engine
 
+[![tests](https://github.com/Danny-397/RL-Chess-Engine/actions/workflows/tests.yml/badge.svg)](https://github.com/Danny-397/RL-Chess-Engine/actions/workflows/tests.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A clean, fully-documented implementation of an **AlphaZero-style reinforcement
 learning chess engine**, written from scratch in **Python + PyTorch**.
 
@@ -213,6 +216,22 @@ Elo is derived from the expected score `S` by the standard logistic relation
 ```bash
 pytest -q
 ```
+
+The same suite runs automatically on every push via GitHub Actions (see the
+`tests` badge above).
+
+### Tracking training progress
+
+Training appends a per-iteration loss breakdown to `logs/training.log`, plus a
+periodic Elo estimate against the random baseline. Turn that log into charts:
+
+```bash
+python plot_progress.py            # -> assets/training_progress.png
+```
+
+This produces two plots — training loss over time, and estimated Elo vs. random
+over time — which together answer the only questions that matter: *is the network
+fitting the data, and is the engine actually getting stronger?*
 
 ---
 
