@@ -144,6 +144,28 @@ Two gotchas the blueprint already handles:
 > lower `RLCHESS_SIMULATIONS`. The committed `example_checkpoint.pt` is served by
 > default; set `RLCHESS_CHECKPOINT` to point at a stronger one.
 
+#### Frontend on Vercel + backend on Render (split deploy)
+
+**Vercel cannot host the backend** — it runs Python only as serverless functions
+with a 250 MB unzipped limit, and PyTorch alone is far larger. The standard
+pattern is to host the **static board on Vercel** and keep the **PyTorch API on
+Render**, with the page calling across to it:
+
+1. Deploy the backend to Render (above). Note its URL, e.g.
+   `https://rl-chess-engine.onrender.com`.
+2. Deploy the frontend to Vercel: import this repo and set the project's
+   **Root Directory** to `web/static` (a [`vercel.json`](vercel.json) is also
+   included). Vercel serves `index.html` as a static site — no build, no Python.
+3. Tell the frontend where the backend is, either by:
+   - opening it with `?api=https://rl-chess-engine.onrender.com`, or
+   - editing `API_BASE` at the top of the `<script>` in
+     [web/static/index.html](web/static/index.html).
+4. Lock down CORS on the Render backend by setting
+   `RLCHESS_ALLOW_ORIGINS=https://your-site.vercel.app` (it defaults to `*`).
+
+The backend already sends the right CORS headers, so the cross-origin calls from
+Vercel just work.
+
 ### Play against the engine (console)
 
 A small, ready-to-use checkpoint ships in `checkpoints/example_checkpoint.pt` so

@@ -37,6 +37,7 @@ if _REPO_ROOT not in sys.path:
 
 import chess
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -72,6 +73,17 @@ def _load_network() -> ChessNet:
 _network = _load_network()
 
 app = FastAPI(title="RL-Chess-Engine")
+
+# Allow a browser front-end hosted elsewhere (e.g. on Vercel) to call this API.
+# Defaults to "*"; set RLCHESS_ALLOW_ORIGINS to a comma-separated list of exact
+# origins (e.g. "https://my-chess.vercel.app") to lock it down in production.
+_ALLOW_ORIGINS = [o.strip() for o in os.environ.get("RLCHESS_ALLOW_ORIGINS", "*").split(",") if o.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOW_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")

@@ -87,12 +87,22 @@
 // --- engine search budget (simulations). Lower = snappier, higher = stronger. ---
 const SIMULATIONS = 80;
 
+// Where the backend API lives. Defaults to the same origin (works when the
+// FastAPI server serves this page itself, e.g. `python main.py --mode serve`).
+// When the frontend is hosted separately (e.g. on Vercel) and the backend is on
+// Render, point this at the backend: either edit API_BASE below, or load the page
+// with ?api=https://your-backend.onrender.com
+const API_BASE =
+  new URLSearchParams(location.search).get('api') ||
+  window.API_BASE ||
+  '';  // <-- set to your Render backend URL for a split frontend/backend deploy
+
 const game = new Chess();
 let board = null;
 
 // Call a backend endpoint with the current position.
 async function ask(endpoint, topN = 3) {
-  const res = await fetch('/' + endpoint, {
+  const res = await fetch(API_BASE + '/' + endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fen: game.fen(), simulations: SIMULATIONS, top_n: topN }),
