@@ -237,6 +237,9 @@ fitting the data, and is the engine actually getting stronger?*
 
 ## How it works (the 3-minute version)
 
+> For a fuller treatment with the underlying math (PUCT, the loss function, and
+> why the self-play loop converges), see [docs/how-it-works.md](docs/how-it-works.md).
+
 **1. The network (`model.py`).** A small ResNet takes an `18 × 8 × 8` tensor of
 the position and produces a policy (4672 logits, one per possible move) and a
 scalar value in `[-1, 1]`. Sharing a trunk between the two heads is multi-task

@@ -115,6 +115,26 @@ def test_terminal_value_checkmate():
     assert game.result_white() == -1.0  # Black delivered mate
 
 
+def test_stalemate_is_a_draw():
+    """Stalemate (no legal move, not in check) is terminal with value 0."""
+    # Black king f8 is boxed in by White Kf6 + Pf7; Black is not in check.
+    game = ChessGame(chess.Board("5k2/5P2/5K2/8/8/8/8/8 b - - 0 1"))
+    assert game.board.is_stalemate()
+    assert not game.board.is_check()
+    assert game.is_terminal()
+    assert game.terminal_value() == 0.0
+    assert game.result_white() == 0.0
+
+
+def test_insufficient_material_is_a_draw():
+    """King vs King is an immediate, unwinnable draw."""
+    game = ChessGame(chess.Board("8/8/8/4k3/8/8/4K3/8 w - - 0 1"))
+    assert game.board.is_insufficient_material()
+    assert game.is_terminal()
+    assert game.terminal_value() == 0.0
+    assert game.result_white() == 0.0
+
+
 # --------------------------------------------------------------------------- #
 # MCTS
 # --------------------------------------------------------------------------- #
@@ -143,6 +163,30 @@ def test_mcts_greedy_temperature_picks_single_move():
     _, probs = action_probabilities(root, temperature=0.0)
     assert pytest.approx(probs.max(), abs=1e-9) == 1.0
     assert (probs > 0).sum() == 1
+
+
+def test_mcts_is_deterministic_without_noise():
+    """Without root exploration noise, MCTS is fully reproducible.
+
+    PUCT selection is deterministic given fixed network outputs, so two searches
+    from the same position with the same (eval-mode) network must produce
+    identical visit counts. This guards against accidental hidden randomness
+    sneaking into the search (which would make results impossible to reproduce).
+    """
+    import torch
+    torch.set_num_threads(1)  # avoid any thread-reduction nondeterminism in CI
+
+    cfg = Config()
+    cfg.mcts.num_simulations = 24
+    net = ChessNet(cfg.network).eval()
+    game = ChessGame()
+
+    root_a = MCTS(net, cfg.mcts).run(game, add_exploration_noise=False)
+    root_b = MCTS(net, cfg.mcts).run(game, add_exploration_noise=False)
+
+    visits_a = {m.uci(): c.visit_count for m, c in root_a.children.items()}
+    visits_b = {m.uci(): c.visit_count for m, c in root_b.children.items()}
+    assert visits_a == visits_b
 
 
 # --------------------------------------------------------------------------- #
