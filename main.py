@@ -22,8 +22,19 @@ CLI flags below so you can experiment without editing code.
 
 from __future__ import annotations
 
-import argparse
 import os
+
+# Cap the numpy/OpenBLAS thread pool *before* numpy is imported (directly or via
+# chess_game/model below).  Parallel self-play spawns many worker processes, and
+# each one would otherwise have OpenBLAS allocate per-thread buffers for every
+# core -- which, multiplied across workers, exhausts memory ("OpenBLAS error:
+# Memory allocation still failed").  One BLAS thread per process is plenty here
+# (the heavy compute is torch, which manages its own threads) and child
+# processes inherit these settings on spawn.
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
+import argparse
 
 import chess
 

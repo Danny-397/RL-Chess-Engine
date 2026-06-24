@@ -28,6 +28,14 @@ for an AlphaZero loop, where self-play dominates the wall-clock time.
 
 from __future__ import annotations
 
+import os
+
+# Limit the BLAS thread pool before numpy is imported, so the many worker
+# processes spawned for parallel self-play don't each allocate per-core OpenBLAS
+# buffers and exhaust memory.  (See the matching note in ``main.py``.)
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+
 import datetime as _dt
 import multiprocessing as mp
 from dataclasses import dataclass, field
