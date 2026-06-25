@@ -108,13 +108,9 @@
     border-radius: 6px; overflow: hidden;
     box-shadow: inset 0 0 0 2px rgba(0,0,0,.35);
   }
-  .sq { position: relative; display: grid; place-items: center; cursor: pointer; user-select: none; }
-  .sq.light { background:
-      repeating-linear-gradient(115deg, rgba(255,255,255,.05) 0 6px, rgba(0,0,0,.02) 6px 12px),
-      linear-gradient(160deg, #f0d6aa, var(--light-sq)); }
-  .sq.dark  { background:
-      repeating-linear-gradient(115deg, rgba(255,255,255,.04) 0 6px, rgba(0,0,0,.05) 6px 12px),
-      linear-gradient(160deg, #a87349, var(--dark-sq)); }
+  .sq { position: relative; display: grid; place-items: center; cursor: pointer; user-select: none; touch-action: none; }
+  .sq.light { background: linear-gradient(160deg, #f1d8ad, var(--light-sq)); }
+  .sq.dark  { background: linear-gradient(160deg, #a87349, var(--dark-sq)); }
   .sq .piece { width: 88%; height: 88%; object-fit: contain; pointer-events: none;
                filter: drop-shadow(0 3px 3px rgba(0,0,0,.35)); z-index: 2; }
   .sq .coord { position: absolute; font-size: 11px; font-weight: 700; opacity: .55; z-index: 3; }
@@ -123,6 +119,10 @@
   .sq.light .coord { color: #6b4a2e; }
   .sq.dark .coord { color: #f0d6aa; }
   .sq.sel::after { content: ""; position: absolute; inset: 0; background: var(--sel); z-index: 1; }
+  .sq.hintsq { box-shadow: inset 0 0 0 5px rgba(86,170,80,.95); }
+  .arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+  .drag-ghost { position: fixed; z-index: 1000; pointer-events: none; object-fit: contain;
+      filter: drop-shadow(0 7px 7px rgba(0,0,0,.55)); }
   .sq.last::after { content: ""; position: absolute; inset: 0; background: var(--lastmv); z-index: 0; }
   .sq.check::before { content: ""; position: absolute; inset: 0; z-index: 1;
       background: radial-gradient(circle, rgba(220,70,55,.85) 0%, rgba(220,70,55,.35) 45%, transparent 72%); }
@@ -219,8 +219,13 @@
     <div class="play-wrap">
       <div>
         <div class="banner" id="banner"><span id="bannerText"></span><button class="btn" id="bannerNew">New game</button></div>
-        <div class="board-frame"><div class="board" id="board"></div></div>
-        <p id="status" style="margin-top:14px;">You play White. Click a piece, then click where to move it.</p>
+        <div class="board-frame">
+          <div style="position:relative;">
+            <div class="board" id="board"></div>
+            <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
+          </div>
+        </div>
+        <p id="status" style="margin-top:14px;">You play White. Click a piece then its destination — or drag it.</p>
       </div>
 
       <div class="panel-col">
@@ -339,8 +344,10 @@ const game = new Chess();
 const FILES = ['a','b','c','d','e','f','g','h'];
 let orientation = 'white';   // board view
 let selected = null;         // selected square name
-let legalTargets = [];       // [{to, capture}]
+let selected_moves = [];     // legal destination squares for the selected piece
+let legalTargets = [];       // [{to, capture}] shown as dots when hints are on
 let lastMove = null;         // {from, to}
+let hintMove = null;         // {from, to} from the Hint button (highlight + arrow)
 let thinking = false;
 const HUMAN = 'w';           // human plays White
 
@@ -368,6 +375,7 @@ function renderBoard() {
       if (lastMove && (lastMove.from === sqName || lastMove.to === sqName)) cls.push('last');
       const hint = legalTargets.find(t => t.to === sqName);
       if (hint) { cls.push('hint'); if (hint.capture) cls.push('capture'); }
+      if (hintMove && (hintMove.from === sqName || hintMove.to === sqName)) cls.push('hintsq');
       if (piece && inCheckColor && piece.type === 'k' && piece.color === inCheckColor) cls.push('check');
       let inner = piece ? pieceImg(piece.color, piece.type) : '';
       if (colIdx === 0) inner += `<span class="coord rank">${rk + 1}</span>`;
@@ -376,6 +384,32 @@ function renderBoard() {
     });
   });
   board.innerHTML = html;
+  updateArrow();
+}
+
+// Map a square name to its centre in the 0..8 viewBox, honouring orientation.
+function squareToXY(sq) {
+  const f = FILES.indexOf(sq[0]);
+  const rk = parseInt(sq[1], 10) - 1;
+  const col = orientation === 'white' ? f : 7 - f;
+  const row = orientation === 'white' ? 7 - rk : rk;
+  return { x: col + 0.5, y: row + 0.5 };
+}
+
+// Draw (or clear) the hint arrow over the board.
+function updateArrow() {
+  const svg = document.getElementById('arrows');
+  if (!hintMove) { svg.innerHTML = ''; return; }
+  const a = squareToXY(hintMove.from), b = squareToXY(hintMove.to);
+  const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len;
+  const tip = { x: b.x - ux * 0.12, y: b.y - uy * 0.12 };
+  const base = { x: tip.x - ux * 0.42, y: tip.y - uy * 0.42 };
+  const px = -uy, py = ux, w = 0.22;
+  const col = 'rgba(86,170,80,.95)';
+  svg.innerHTML =
+    `<line x1="${a.x}" y1="${a.y}" x2="${base.x}" y2="${base.y}" stroke="${col}" stroke-width="0.16" stroke-linecap="round"/>` +
+    `<polygon points="${base.x + px * w},${base.y + py * w} ${base.x - px * w},${base.y - py * w} ${tip.x},${tip.y}" fill="${col}"/>`;
 }
 
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
@@ -417,8 +451,8 @@ function showBanner() {
 }
 function hideBanner() { document.getElementById('banner').className = 'banner'; }
 
-// ----------------------------- interaction -----------------------------
-function clearSelection() { selected = null; legalTargets = []; }
+// ----------------------------- interaction (click + drag) -----------------------------
+function clearSelection() { selected = null; selected_moves = []; legalTargets = []; }
 
 function selectSquare(sq) {
   const piece = game.get(sq);
@@ -426,30 +460,67 @@ function selectSquare(sq) {
   selected = sq;
   const show = document.getElementById('showMoves').checked;
   const verbose = game.moves({ square: sq, verbose: true });
+  selected_moves = verbose.map(m => m.to);                                // for validation
   legalTargets = show ? verbose.map(m => ({ to: m.to, capture: /[ce]/.test(m.flags) || !!m.captured })) : [];
-  // keep the raw targets for move validation even if hints are hidden
-  selected_moves = verbose.map(m => m.to);
   renderBoard();
 }
 
-let selected_moves = [];
-function onSquareClick(sq) {
-  if (thinking || game.game_over()) return;
-  if (selected && selected_moves.includes(sq)) {       // complete a move
-    game.move({ from: selected, to: sq, promotion: 'q' });
-    lastMove = { from: selected, to: sq };
-    clearSelection(); renderBoard();
-    if (game.game_over()) { showBanner(); return; }
-    setStatus('Engine is thinking…');
-    setTimeout(engineMove, 120);
-    return;
-  }
-  selectSquare(sq);                                    // (re)select
+function doMove(from, to) {
+  game.move({ from, to, promotion: 'q' });   // auto-queen on promotion
+  lastMove = { from, to };
+  hintMove = null; clearSelection(); renderBoard();
+  if (game.game_over()) { showBanner(); return; }
+  thinking = true; setStatus('Engine is thinking…');
+  setTimeout(engineMove, 120);
 }
 
-document.getElementById('board').addEventListener('click', e => {
-  const cell = e.target.closest('.sq'); if (cell) onSquareClick(cell.dataset.sq);
-});
+// A unified pointer handler gives us click-to-move AND drag-to-move.
+let drag = null;  // { from, ghost, moved }
+
+function squarePxSize() { return document.getElementById('board').clientWidth / 8; }
+
+function makeGhost(sq, x, y) {
+  const p = game.get(sq); if (!p) return null;
+  const shade = p.color === 'w' ? 'l' : 'd';
+  const img = document.createElement('img');
+  img.className = 'drag-ghost';
+  img.src = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${p.color}${p.type}.png`;
+  img.onerror = function () { this.onerror = null; this.src = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${p.type}${shade}t45.svg`; };
+  const s = squarePxSize(); img.style.width = img.style.height = s + 'px';
+  document.body.appendChild(img); moveGhost(img, x, y); return img;
+}
+function moveGhost(img, x, y) { const s = parseFloat(img.style.width); img.style.left = (x - s / 2) + 'px'; img.style.top = (y - s / 2) + 'px'; }
+function squareAtPoint(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.sq'); return c ? c.dataset.sq : null; }
+
+function onPointerDown(e) {
+  if (thinking || game.game_over()) return;
+  const cell = e.target.closest('.sq'); if (!cell) return;
+  const sq = cell.dataset.sq;
+  hintMove = null;                                   // any interaction clears the hint
+  if (selected && selected_moves.includes(sq)) { doMove(selected, sq); return; }  // click-to-move
+  const piece = game.get(sq);
+  if (piece && piece.color === game.turn() && game.turn() === HUMAN) {
+    selectSquare(sq);
+    drag = { from: sq, ghost: makeGhost(sq, e.clientX, e.clientY), moved: false };
+    const pieceImgEl = cell.querySelector('.piece'); if (pieceImgEl) pieceImgEl.style.visibility = 'hidden';
+  } else { clearSelection(); renderBoard(); }
+}
+function onPointerMove(e) {
+  if (!drag || !drag.ghost) return;
+  drag.moved = true; moveGhost(drag.ghost, e.clientX, e.clientY);
+}
+function onPointerUp(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.ghost) d.ghost.remove();
+  const dropSq = squareAtPoint(e.clientX, e.clientY);
+  if (d.moved && dropSq && dropSq !== d.from && selected_moves.includes(dropSq)) { doMove(d.from, dropSq); return; }
+  renderBoard();   // a tap (not a drag): restore the piece and keep it selected
+}
+
+document.getElementById('board').addEventListener('pointerdown', onPointerDown);
+document.addEventListener('pointermove', onPointerMove);
+document.addEventListener('pointerup', onPointerUp);
 
 async function engineMove() {
   thinking = true;
@@ -468,21 +539,28 @@ async function engineMove() {
 
 // ----------------------------- controls -----------------------------
 function newGame() {
-  game.reset(); clearSelection(); lastMove = null; thinking = false;
+  game.reset(); clearSelection(); lastMove = null; hintMove = null; thinking = false;
   hideBanner(); setEval(0.5); document.getElementById('moves').innerHTML = '<li><span class="meta">Press “Hint”.</span></li>';
-  renderBoard(); setStatus('New game. You play White — click a piece, then its destination.');
+  renderBoard(); setStatus('New game. You play White — click or drag a piece to move it.');
 }
 document.getElementById('newBtn').onclick = newGame;
 document.getElementById('bannerNew').onclick = newGame;
 document.getElementById('flipBtn').onclick = () => { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); };
 document.getElementById('showMoves').onchange = () => { if (selected) selectSquare(selected); };
 document.getElementById('hintBtn').onclick = async () => {
-  if (game.game_over()) return;
+  if (game.game_over() || thinking) return;
   setStatus('Analysing…');
   const data = await ask('analyze', 3);
   if (data.error) { setStatus(DOWN_MSG); return; }
   setEval(data.white_win_probability); setMoves(data.suggestions);
-  setStatus('Engine recommends: ' + (data.suggestions[0] ? data.suggestions[0].san : '—'));
+  const best = data.move || (data.suggestions && data.suggestions[0]);
+  if (best && best.uci) {
+    hintMove = { from: best.uci.slice(0, 2), to: best.uci.slice(2, 4) };  // highlight + arrow
+    clearSelection(); renderBoard();
+    setStatus('Hint: play ' + best.san + ' (highlighted on the board).');
+  } else {
+    setStatus('Engine recommends: ' + (best ? best.san : '—'));
+  }
 };
 
 // ----------------------------- init -----------------------------
