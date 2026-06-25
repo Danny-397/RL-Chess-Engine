@@ -22,6 +22,14 @@ here, implemented in a way meant to be *read and understood*:
 > reinforcement learning and search, not to chase grandmaster strength. Every
 > module is small, single-purpose and heavily commented.
 
+### What this project demonstrates
+
+- **Reinforcement learning from scratch** — the full AlphaZero loop (network ↔ search ↔ self-play), no RL libraries.
+- **Search algorithms** — PUCT Monte-Carlo Tree Search *and* a classical alpha-beta engine (negamax, quiescence, piece-square evaluation).
+- **Deep learning in PyTorch** — a dual-headed residual CNN, custom loss, training loop and checkpointing.
+- **Software engineering** — modular design, a 25-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
+- **Engineering judgement** — diagnosing and solving real problems under real constraints (see *Engineering decisions & challenges* below).
+
 ---
 
 ## Why this is interesting
@@ -363,6 +371,49 @@ The code is built to be tinkered with:
 - **Training behaviour?** Everything (learning rate, batch size, games per
   iteration, replay buffer size, temperature schedule) lives in
   `config.TrainingConfig`.
+
+---
+
+## Engineering decisions & challenges
+
+The interesting part of a project is rarely the happy path. A few real problems
+this one ran into, and how they were solved:
+
+- **The "draw cycle."** An *under-trained* network + MCTS won material but couldn't
+  convert — it shuffled winning positions into threefold-repetition draws (it drew
+  the random baseline 50%). Diagnosing this (logging *why* each game ended) showed
+  the value head only ever saw drawn outcomes, so it never learned what *winning*
+  looked like. **Decision:** for the playable demo, add a dependency-light classical
+  **alpha-beta engine** (`search.py`) that plays sound chess *today* (it beats the
+  random baseline 10–0), while keeping the neural network + MCTS as the learning
+  project. Two engines, each used where it's strongest.
+- **"Weird" openings.** The alpha-beta engine first only valued material, so every
+  opening move scored 0 and it played randomly (knights to the rim, rook shuffles).
+  **Fix:** piece-square tables — now it develops toward the centre and castles
+  sensibly, with no training required.
+- **Converting won endgames.** Material alone can't deliver mate. **Fix:** an
+  endgame "mop-up" evaluation (drive the lone king to a corner, shrink its escape
+  squares) plus scoring repetition/stalemate as 0 — so the engine seeks the
+  *fastest* mate instead of stalling.
+- **Memory limits.** Training crashed with `OpenBLAS`/paging errors when parallel
+  self-play spawned many PyTorch workers on a small machine, and orphaned worker
+  processes piled up. **Fixes:** cap BLAS threads before importing numpy, and fall
+  back to sequential self-play when memory is tight.
+- **Deployability.** A PyTorch web service is too big for free serverless/instances
+  (the multi-GB CUDA wheel, the 250 MB serverless limit). **Decision:** because the
+  demo engine is *torch-free*, the deployed app needs only `python-chess` + FastAPI
+  — a tiny service that runs on a free tier and even fits a Vercel function.
+- **Reproducibility.** A search with hidden randomness is impossible to debug, so
+  MCTS is deterministic without exploration noise — and there's a test that proves
+  it.
+
+## Roadmap
+
+- Train the network to real strength on a GPU (a one-click [Colab notebook](notebooks/train_on_colab.ipynb)
+  is included) and publish the Elo-vs-iterations curve.
+- Let the live demo optionally play the *trained network* alongside the classical engine.
+- Batched MCTS leaf evaluation to make GPU self-play far faster.
+- Add move-history planes to the board encoding (full AlphaZero repetition handling).
 
 ---
 
