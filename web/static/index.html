@@ -184,6 +184,20 @@
   .caprow { margin-bottom: 8px; }
   .caprow:last-child { margin-bottom: 0; }
   .caprow .lbl { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  /* engine-thinking spinner */
+  .spinner { position: absolute; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center; pointer-events: none; }
+  .spinner.show { display: flex; }
+  .spinner .ring { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(20,15,10,.25);
+      border-top-color: var(--gold); animation: spin .8s linear infinite; box-shadow: 0 2px 12px rgba(0,0,0,.35); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* "your turn" board pulse */
+  .board-frame.yourturn { animation: yourturn .9s ease; }
+  @keyframes yourturn {
+    0%, 100% { box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12); }
+    35% { box-shadow: 0 0 0 4px rgba(212,162,76,.75), 0 18px 50px rgba(0,0,0,.5); }
+  }
+  /* opening name */
+  .opening { margin-top: 6px; font-size: 13px; color: var(--gold); font-weight: 600; min-height: 18px; }
   .evalbar { height: 16px; border-radius: 9px; overflow: hidden; display: flex; background: #0e0b08; border: 1px solid var(--line); }
   .evalbar .w { background: linear-gradient(90deg,#f2e2c5,#e9cfa3); }
   .evalbar .b { background: #2a2017; }
@@ -269,9 +283,11 @@
             <svg class="arrows" id="annotations" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
             <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
             <div class="promo-overlay" id="promo"><div class="promo-box" id="promoBox"></div></div>
+            <div class="spinner" id="spinner"><div class="ring"></div></div>
           </div>
         </div>
         <p id="status" style="margin-top:14px;">You play White. Click a piece then its destination — or drag it.</p>
+        <div class="opening" id="opening"></div>
       </div>
 
       <div class="panel-col">
@@ -455,6 +471,7 @@ function playSound(kind) {
   else if (kind === 'castle') { beep(300, 0.07, 'triangle', 0.12); beep(380, 0.08, 'triangle', 0.12, 0.08); }
   else if (kind === 'promote') { beep(420, 0.08, 'triangle', 0.12); beep(640, 0.11, 'triangle', 0.12, 0.08); }
   else if (kind === 'end') { beep(520, 0.14, 'sine', 0.14); beep(390, 0.20, 'sine', 0.12, 0.14); }
+  else if (kind === 'yourturn') { beep(523, 0.09, 'sine', 0.07); beep(659, 0.11, 'sine', 0.07, 0.09); }
 }
 function soundForMove(mv) {
   if (game.game_over()) return 'end';
@@ -465,6 +482,50 @@ function soundForMove(mv) {
     if (/[ce]/.test(mv.flags)) return 'capture';
   }
   return 'move';
+}
+
+// ----------------------------- thinking spinner + your-turn cue -----------------------------
+function showSpinner() { document.getElementById('spinner').classList.add('show'); }
+function hideSpinner() { document.getElementById('spinner').classList.remove('show'); }
+function yourTurnCue() {
+  const frame = document.querySelector('.board-frame');
+  frame.classList.remove('yourturn'); void frame.offsetWidth;  // restart the animation
+  frame.classList.add('yourturn');
+  setTimeout(() => frame.classList.remove('yourturn'), 950);
+  playSound('yourturn');
+}
+
+// ----------------------------- opening names (common lines) -----------------------------
+const OPENINGS = {
+  'e4': "King's Pawn", 'e4 e5': 'Open Game', 'e4 e5 Nf3': "King's Knight",
+  'e4 e5 Nf3 Nc6 Bb5': 'Ruy López', 'e4 e5 Nf3 Nc6 Bc4': 'Italian Game',
+  'e4 e5 Nf3 Nc6 Bc4 Bc5': 'Giuoco Piano', 'e4 e5 Nf3 Nc6 Bc4 Nf6': 'Two Knights',
+  'e4 e5 Nf3 Nf6': 'Petrov Defense', 'e4 e5 Nf3 Nc6 d4': 'Scotch Game',
+  'e4 e5 Bc4': "Bishop's Opening", 'e4 e5 Nc3': 'Vienna Game', 'e4 e5 f4': "King's Gambit",
+  'e4 c5': 'Sicilian Defense', 'e4 c5 Nf3 d6': 'Sicilian', 'e4 c5 Nf3 Nc6': 'Sicilian',
+  'e4 c5 Nc3': 'Closed Sicilian', 'e4 c5 c3': 'Sicilian, Alapin',
+  'e4 e6': 'French Defense', 'e4 c6': 'Caro-Kann Defense', 'e4 d5': 'Scandinavian',
+  'e4 d6': 'Pirc Defense', 'e4 g6': 'Modern Defense', 'e4 Nf6': 'Alekhine Defense',
+  'd4': "Queen's Pawn", 'd4 d5': 'Closed Game', 'd4 d5 c4': "Queen's Gambit",
+  'd4 d5 c4 e6': 'Queen\'s Gambit Declined', 'd4 d5 c4 c6': 'Slav Defense',
+  'd4 d5 c4 dxc4': "Queen's Gambit Accepted",
+  'd4 Nf6': 'Indian Defense', 'd4 Nf6 c4 e6 Nc3 Bb4': 'Nimzo-Indian',
+  'd4 Nf6 c4 g6': "King's Indian / Grünfeld", 'd4 Nf6 c4 g6 Nc3 Bg7': "King's Indian",
+  'd4 Nf6 c4 g6 Nc3 d5': 'Grünfeld Defense', 'd4 Nf6 c4 e6 Nf3 b6': 'Queen\'s Indian',
+  'd4 f5': 'Dutch Defense',
+  'c4': 'English Opening', 'Nf3': 'Réti / KIA', 'Nf3 d5 c4': 'Réti Opening',
+  'b3': 'Larsen Attack', 'f4': "Bird's Opening", 'g3': "King's Fianchetto",
+};
+function findOpening(hist) {
+  for (let i = Math.min(hist.length, 12); i >= 1; i--) {
+    const name = OPENINGS[hist.slice(0, i).join(' ')];
+    if (name) return name;
+  }
+  return '';
+}
+function renderOpening() {
+  const n = findOpening(game.history());
+  document.getElementById('opening').textContent = n ? 'Opening: ' + n : '';
 }
 
 // ----------------------------- board state -----------------------------
@@ -525,6 +586,7 @@ function renderBoard() {
   updateArrow();
   drawAnnotations();
   renderMaterial();
+  renderOpening();
   updateClocks();
 }
 
@@ -632,7 +694,7 @@ function finalizeMove(from, to, promo) {
   lastMove = { from, to };
   hintMove = null; clearSelection(); renderBoard(); renderHistory();
   if (game.game_over()) { showBanner(); return; }
-  thinking = true; setStatus('Engine is thinking…');
+  thinking = true; showSpinner(); setStatus('Engine is thinking…');
   setTimeout(engineMove, 120);
 }
 
@@ -757,9 +819,9 @@ document.addEventListener('pointermove', onPointerMove);
 document.addEventListener('pointerup', onPointerUp);
 
 async function engineMove() {
-  thinking = true;
+  thinking = true; showSpinner();
   const data = await ask('engine_move', 3);
-  thinking = false;
+  thinking = false; hideSpinner();
   if (data.error) { game.undo(); lastMove = null; renderBoard(); setStatus(DOWN_MSG); return; }
   if (data.game_over) { renderBoard(); showBanner(); return; }
   const m = data.move;
@@ -770,6 +832,7 @@ async function engineMove() {
   setEval(data.white_win_probability); setMoves(data.suggestions);
   if (game.game_over()) { showBanner(); return; }
   setStatus(`Engine played ${m.san}. Your move.`);
+  yourTurnCue();
 }
 
 // ----------------------------- clock -----------------------------
@@ -859,7 +922,7 @@ function newGame() {
   renderBoard(); renderHistory(); startClock();
   setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — click or drag a piece to move it.`);
   if (game.turn() !== humanColor) {                 // engine opens (you chose Black)
-    thinking = true; setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
+    thinking = true; showSpinner(); setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
   }
 }
 document.getElementById('newBtn').onclick = newGame;
