@@ -4,6 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>RL-Chess-Engine — a chess engine that learns</title>
+<meta name="description" content="An AlphaZero-style reinforcement-learning chess engine built from scratch in Python & PyTorch. Play it on a wooden board, with move hints and a deep dive into how it learns." />
+<meta name="theme-color" content="#15110d" />
+<meta property="og:title" content="RL-Chess-Engine — a chess engine that teaches itself" />
+<meta property="og:description" content="Play an AlphaZero-style RL chess engine on a hand-made wooden board." />
+<meta property="og:type" content="website" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='20'%20fill='%23d4a24c'/%3E%3Ctext%20x='50'%20y='52'%20font-size='72'%20text-anchor='middle'%20dominant-baseline='central'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -96,7 +102,7 @@
   .play-wrap { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
 
   .board-frame {
-    --size: 512px;
+    --size: min(512px, 92vw);
     padding: 18px;
     border-radius: 14px;
     background: linear-gradient(145deg, #6b4a2e, var(--frame) 60%, #3f2a1a);
@@ -140,6 +146,25 @@
   .controls .btn { padding: 9px 14px; }
   .toggle { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 14px; color: var(--muted); cursor: pointer; }
   .toggle input { width: 16px; height: 16px; accent-color: var(--gold); }
+  .optrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 14px; color: var(--muted); }
+  .optrow select {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--bg2);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; cursor: pointer;
+  }
+  /* move history */
+  .history { max-height: 200px; overflow-y: auto; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .history .row { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 4px; padding: 3px 4px; border-radius: 6px; }
+  .history .row:nth-child(odd) { background: var(--bg2); }
+  .history .num { color: var(--muted); }
+  .history .empty { color: var(--muted); }
+  /* promotion picker */
+  .promo-overlay { position: absolute; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center;
+      background: rgba(10,8,6,.55); border-radius: 6px; }
+  .promo-overlay.show { display: flex; }
+  .promo-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; gap: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  .promo-box img { width: 56px; height: 56px; cursor: pointer; border-radius: 8px; padding: 4px; background: var(--light-sq); }
+  .promo-box img:hover { outline: 3px solid var(--gold); }
   .evalbar { height: 16px; border-radius: 9px; overflow: hidden; display: flex; background: #0e0b08; border: 1px solid var(--line); }
   .evalbar .w { background: linear-gradient(90deg,#f2e2c5,#e9cfa3); }
   .evalbar .b { background: #2a2017; }
@@ -223,6 +248,7 @@
           <div style="position:relative;">
             <div class="board" id="board"></div>
             <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
+            <div class="promo-overlay" id="promo"><div class="promo-box" id="promoBox"></div></div>
           </div>
         </div>
         <p id="status" style="margin-top:14px;">You play White. Click a piece then its destination — or drag it.</p>
@@ -234,9 +260,24 @@
           <div class="controls">
             <button class="btn primary" id="newBtn">New game</button>
             <button class="btn ghost" id="hintBtn">Hint</button>
+            <button class="btn ghost" id="undoBtn">Undo</button>
             <button class="btn ghost" id="flipBtn">Flip</button>
           </div>
-          <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I click a piece</label>
+          <div class="optrow"><span>Play as</span>
+            <select id="side">
+              <option value="w" selected>White</option>
+              <option value="b">Black</option>
+              <option value="random">Random</option>
+            </select>
+          </div>
+          <div class="optrow"><span>Difficulty</span>
+            <select id="difficulty">
+              <option value="2">Easy</option>
+              <option value="3" selected>Normal</option>
+              <option value="4">Hard</option>
+            </select>
+          </div>
+          <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
         </div>
 
         <div class="pcard">
@@ -248,6 +289,11 @@
         <div class="pcard">
           <h4>Engine recommends</h4>
           <ol class="moves" id="moves"><li><span class="meta">Press “Hint”.</span></li></ol>
+        </div>
+
+        <div class="pcard">
+          <h4>Moves</h4>
+          <div class="history" id="history"><span class="empty">No moves yet.</span></div>
         </div>
       </div>
     </div>
@@ -331,7 +377,7 @@ async function ask(endpoint, topN = 3) {
   try {
     const r = await fetch(API_BASE + '/' + endpoint, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fen: game.fen(), top_n: topN })
+      body: JSON.stringify({ fen: game.fen(), top_n: topN, depth: difficulty })
     });
     if (!r.ok) return { error: 'HTTP ' + r.status };
     return await r.json();
@@ -349,7 +395,9 @@ let legalTargets = [];       // [{to, capture}] shown as dots when hints are on
 let lastMove = null;         // {from, to}
 let hintMove = null;         // {from, to} from the Hint button (highlight + arrow)
 let thinking = false;
-const HUMAN = 'w';           // human plays White
+let humanColor = 'w';        // which colour the human plays
+let difficulty = 3;          // alpha-beta search depth sent to the backend
+let pendingPromo = null;     // {from, to} awaiting a promotion choice
 
 function pieceImg(color, type) {
   const shade = color === 'w' ? 'l' : 'd';
@@ -434,7 +482,7 @@ function setMoves(suggestions) {
 function gameOverInfo() {
   let kind = 'draw', text = 'Draw.';
   if (game.in_checkmate()) {
-    const humanWon = game.turn() !== HUMAN;        // side to move is the one mated
+    const humanWon = game.turn() !== humanColor;   // side to move is the one mated
     kind = humanWon ? 'win' : 'loss';
     text = (humanWon ? '🎉 You win — ' : 'You lose — ') + (game.turn() === 'w' ? 'Black' : 'White') + ' is checkmated.';
   } else if (game.in_stalemate()) text = 'Draw by stalemate.';
@@ -456,7 +504,7 @@ function clearSelection() { selected = null; selected_moves = []; legalTargets =
 
 function selectSquare(sq) {
   const piece = game.get(sq);
-  if (!piece || piece.color !== game.turn() || game.turn() !== HUMAN) { clearSelection(); renderBoard(); return; }
+  if (!piece || piece.color !== game.turn() || game.turn() !== humanColor) { clearSelection(); renderBoard(); return; }
   selected = sq;
   const show = document.getElementById('showMoves').checked;
   const verbose = game.moves({ square: sq, verbose: true });
@@ -465,13 +513,65 @@ function selectSquare(sq) {
   renderBoard();
 }
 
+function isPromotion(from, to) {
+  const p = game.get(from);
+  return p && p.type === 'p' && (to[1] === '8' || to[1] === '1');
+}
 function doMove(from, to) {
-  game.move({ from, to, promotion: 'q' });   // auto-queen on promotion
+  if (isPromotion(from, to)) { openPromo(from, to); return; }   // ask which piece
+  finalizeMove(from, to, 'q');
+}
+function finalizeMove(from, to, promo) {
+  game.move({ from, to, promotion: promo });
   lastMove = { from, to };
-  hintMove = null; clearSelection(); renderBoard();
+  hintMove = null; clearSelection(); renderBoard(); renderHistory();
   if (game.game_over()) { showBanner(); return; }
   thinking = true; setStatus('Engine is thinking…');
   setTimeout(engineMove, 120);
+}
+
+// ----- promotion picker -----
+function openPromo(from, to) {
+  pendingPromo = { from, to };
+  const color = game.get(from).color;
+  document.getElementById('promoBox').innerHTML = ['q','r','b','n'].map(t => {
+    const shade = color === 'w' ? 'l' : 'd';
+    const primary = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${color}${t}.png`;
+    const fb = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${t}${shade}t45.svg`;
+    return `<img data-promo="${t}" src="${primary}" alt="${t}" onerror="this.onerror=null;this.src='${fb}'">`;
+  }).join('');
+  document.getElementById('promo').classList.add('show');
+}
+function choosePromo(t) {
+  document.getElementById('promo').classList.remove('show');
+  const p = pendingPromo; pendingPromo = null;
+  if (p) finalizeMove(p.from, p.to, t);
+}
+document.getElementById('promoBox').addEventListener('click', e => {
+  const img = e.target.closest('img[data-promo]'); if (img) choosePromo(img.dataset.promo);
+});
+
+// ----- move history -----
+function renderHistory() {
+  const h = game.history();
+  const el = document.getElementById('history');
+  if (!h.length) { el.innerHTML = '<span class="empty">No moves yet.</span>'; return; }
+  let rows = '';
+  for (let i = 0; i < h.length; i += 2) {
+    rows += `<div class="row"><span class="num">${i / 2 + 1}.</span><span>${h[i]}</span><span>${h[i + 1] || ''}</span></div>`;
+  }
+  el.innerHTML = rows; el.scrollTop = el.scrollHeight;
+}
+
+// ----- takeback -----
+function undo() {
+  if (thinking || pendingPromo) return;
+  if (game.turn() !== humanColor || game.history().length < 2) return;
+  game.undo(); game.undo();                       // undo engine reply + your move
+  const hist = game.history({ verbose: true });
+  lastMove = hist.length ? { from: hist[hist.length - 1].from, to: hist[hist.length - 1].to } : null;
+  hintMove = null; clearSelection(); hideBanner();
+  renderBoard(); renderHistory(); setStatus('Took back your last move. Your move.');
 }
 
 // A unified pointer handler gives us click-to-move AND drag-to-move.
@@ -493,13 +593,13 @@ function moveGhost(img, x, y) { const s = parseFloat(img.style.width); img.style
 function squareAtPoint(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.sq'); return c ? c.dataset.sq : null; }
 
 function onPointerDown(e) {
-  if (thinking || game.game_over()) return;
+  if (thinking || game.game_over() || pendingPromo) return;
   const cell = e.target.closest('.sq'); if (!cell) return;
   const sq = cell.dataset.sq;
   hintMove = null;                                   // any interaction clears the hint
   if (selected && selected_moves.includes(sq)) { doMove(selected, sq); return; }  // click-to-move
   const piece = game.get(sq);
-  if (piece && piece.color === game.turn() && game.turn() === HUMAN) {
+  if (piece && piece.color === game.turn() && game.turn() === humanColor) {
     selectSquare(sq);
     drag = { from: sq, ghost: makeGhost(sq, e.clientX, e.clientY), moved: false };
     const pieceImgEl = cell.querySelector('.piece'); if (pieceImgEl) pieceImgEl.style.visibility = 'hidden';
@@ -531,7 +631,7 @@ async function engineMove() {
   const m = data.move;
   game.move({ from: m.uci.slice(0,2), to: m.uci.slice(2,4), promotion: m.uci.length > 4 ? m.uci[4] : undefined });
   lastMove = { from: m.uci.slice(0,2), to: m.uci.slice(2,4) };
-  renderBoard();
+  renderBoard(); renderHistory();
   setEval(data.white_win_probability); setMoves(data.suggestions);
   if (game.game_over()) { showBanner(); return; }
   setStatus(`Engine played ${m.san}. Your move.`);
@@ -539,12 +639,23 @@ async function engineMove() {
 
 // ----------------------------- controls -----------------------------
 function newGame() {
-  game.reset(); clearSelection(); lastMove = null; hintMove = null; thinking = false;
+  const sideSel = document.getElementById('side').value;
+  humanColor = sideSel === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideSel;
+  orientation = humanColor === 'w' ? 'white' : 'black';
+  game.reset(); clearSelection(); lastMove = null; hintMove = null; thinking = false; pendingPromo = null;
+  document.getElementById('promo').classList.remove('show');
   hideBanner(); setEval(0.5); document.getElementById('moves').innerHTML = '<li><span class="meta">Press “Hint”.</span></li>';
-  renderBoard(); setStatus('New game. You play White — click or drag a piece to move it.');
+  renderBoard(); renderHistory();
+  setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — click or drag a piece to move it.`);
+  if (game.turn() !== humanColor) {                 // engine opens (you chose Black)
+    thinking = true; setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
+  }
 }
 document.getElementById('newBtn').onclick = newGame;
 document.getElementById('bannerNew').onclick = newGame;
+document.getElementById('undoBtn').onclick = undo;
+document.getElementById('side').onchange = newGame;            // switching colour restarts
+document.getElementById('difficulty').onchange = e => { difficulty = parseInt(e.target.value, 10); };
 document.getElementById('flipBtn').onclick = () => { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); };
 document.getElementById('showMoves').onchange = () => { if (selected) selectSquare(selected); };
 document.getElementById('hintBtn').onclick = async () => {
@@ -565,6 +676,7 @@ document.getElementById('hintBtn').onclick = async () => {
 
 // ----------------------------- init -----------------------------
 renderBoard();
+renderHistory();
 </script>
 </body>
 </html>
