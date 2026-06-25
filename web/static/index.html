@@ -165,6 +165,23 @@
       box-shadow: 0 12px 40px rgba(0,0,0,.5); }
   .promo-box img { width: 56px; height: 56px; cursor: pointer; border-radius: 8px; padding: 4px; background: var(--light-sq); }
   .promo-box img:hover { outline: 3px solid var(--gold); }
+  /* right-click marked square */
+  .sq.marked { box-shadow: inset 0 0 0 1000px rgba(202,52,46,.5); }
+  /* chess clock */
+  .clock { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+      border-radius: 9px; background: var(--bg2); margin-bottom: 8px; border: 1px solid transparent; }
+  .clock:last-child { margin-bottom: 0; }
+  .clock .who { color: var(--muted); font-size: 13px; }
+  .clock .time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 22px; letter-spacing: .5px; }
+  .clock.active { border-color: var(--gold); background: rgba(212,162,76,.12); }
+  .clock.low .time { color: var(--bad); }
+  /* captured pieces / material */
+  .cap { display: flex; align-items: center; gap: 2px; min-height: 24px; flex-wrap: wrap; }
+  .cap img { width: 20px; height: 20px; object-fit: contain; }
+  .cap .adv { color: var(--good); font-weight: 700; font-size: 13px; margin-left: 6px; }
+  .caprow { margin-bottom: 8px; }
+  .caprow:last-child { margin-bottom: 0; }
+  .caprow .lbl { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
   .evalbar { height: 16px; border-radius: 9px; overflow: hidden; display: flex; background: #0e0b08; border: 1px solid var(--line); }
   .evalbar .w { background: linear-gradient(90deg,#f2e2c5,#e9cfa3); }
   .evalbar .b { background: #2a2017; }
@@ -247,6 +264,7 @@
         <div class="board-frame">
           <div style="position:relative;">
             <div class="board" id="board"></div>
+            <svg class="arrows" id="annotations" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
             <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
             <div class="promo-overlay" id="promo"><div class="promo-box" id="promoBox"></div></div>
           </div>
@@ -277,7 +295,28 @@
               <option value="4">Hard</option>
             </select>
           </div>
+          <div class="optrow"><span>Time</span>
+            <select id="timeCtl">
+              <option value="0" selected>Unlimited</option>
+              <option value="1">1 min</option>
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+            </select>
+          </div>
           <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
+          <p class="muted" style="font-size:12px;margin:10px 0 0;">Tip: right-click + drag to draw an arrow; right-click a square to mark it.</p>
+        </div>
+
+        <div class="pcard" id="clockCard" style="display:none;">
+          <h4>Clock</h4>
+          <div class="clock" id="clockTop"><span class="who" id="whoTop">Engine</span><span class="time" id="timeTop">∞</span></div>
+          <div class="clock" id="clockBot"><span class="who" id="whoBot">You</span><span class="time" id="timeBot">∞</span></div>
+        </div>
+
+        <div class="pcard">
+          <h4>Material</h4>
+          <div class="caprow"><div class="lbl" id="capYouLbl">You captured</div><div class="cap" id="capYou"></div></div>
+          <div class="caprow"><div class="lbl" id="capOppLbl">Engine captured</div><div class="cap" id="capOpp"></div></div>
         </div>
 
         <div class="pcard">
@@ -398,6 +437,13 @@ let thinking = false;
 let humanColor = 'w';        // which colour the human plays
 let difficulty = 3;          // alpha-beta search depth sent to the backend
 let pendingPromo = null;     // {from, to} awaiting a promotion choice
+let userArrows = [];         // right-click drawn arrows [{from,to}]
+let markedSquares = new Set();// right-click marked (red) squares
+let anno = null;             // {from, cur} during a right-drag
+// clock
+let timeControl = 0;         // minutes per side; 0 = unlimited
+let whiteMs = 0, blackMs = 0;
+let clockTimer = null, lastTick = 0, timedOut = false;
 
 function pieceImg(color, type) {
   const shade = color === 'w' ? 'l' : 'd';
@@ -424,6 +470,7 @@ function renderBoard() {
       const hint = legalTargets.find(t => t.to === sqName);
       if (hint) { cls.push('hint'); if (hint.capture) cls.push('capture'); }
       if (hintMove && (hintMove.from === sqName || hintMove.to === sqName)) cls.push('hintsq');
+      if (markedSquares.has(sqName)) cls.push('marked');
       if (piece && inCheckColor && piece.type === 'k' && piece.color === inCheckColor) cls.push('check');
       let inner = piece ? pieceImg(piece.color, piece.type) : '';
       if (colIdx === 0) inner += `<span class="coord rank">${rk + 1}</span>`;
@@ -433,6 +480,9 @@ function renderBoard() {
   });
   board.innerHTML = html;
   updateArrow();
+  drawAnnotations();
+  renderMaterial();
+  updateClocks();
 }
 
 // Map a square name to its centre in the 0..8 viewBox, honouring orientation.
@@ -444,21 +494,32 @@ function squareToXY(sq) {
   return { x: col + 0.5, y: row + 0.5 };
 }
 
-// Draw (or clear) the hint arrow over the board.
-function updateArrow() {
-  const svg = document.getElementById('arrows');
-  if (!hintMove) { svg.innerHTML = ''; return; }
-  const a = squareToXY(hintMove.from), b = squareToXY(hintMove.to);
+// Build one arrow's SVG markup between two squares.
+function arrowMarkup(from, to, col) {
+  const a = squareToXY(from), b = squareToXY(to);
   const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
   const ux = dx / len, uy = dy / len;
   const tip = { x: b.x - ux * 0.12, y: b.y - uy * 0.12 };
   const base = { x: tip.x - ux * 0.42, y: tip.y - uy * 0.42 };
   const px = -uy, py = ux, w = 0.22;
-  const col = 'rgba(86,170,80,.95)';
-  svg.innerHTML =
-    `<line x1="${a.x}" y1="${a.y}" x2="${base.x}" y2="${base.y}" stroke="${col}" stroke-width="0.16" stroke-linecap="round"/>` +
-    `<polygon points="${base.x + px * w},${base.y + py * w} ${base.x - px * w},${base.y - py * w} ${tip.x},${tip.y}" fill="${col}"/>`;
+  return `<line x1="${a.x}" y1="${a.y}" x2="${base.x}" y2="${base.y}" stroke="${col}" stroke-width="0.16" stroke-linecap="round"/>` +
+         `<polygon points="${base.x + px * w},${base.y + py * w} ${base.x - px * w},${base.y - py * w} ${tip.x},${tip.y}" fill="${col}"/>`;
 }
+
+// The green hint arrow (from the Hint button).
+function updateArrow() {
+  const svg = document.getElementById('arrows');
+  svg.innerHTML = hintMove ? arrowMarkup(hintMove.from, hintMove.to, 'rgba(86,170,80,.95)') : '';
+}
+
+// User's right-click arrows (orange) + a live preview while dragging.
+function drawAnnotations() {
+  const svg = document.getElementById('annotations');
+  let s = userArrows.map(a => arrowMarkup(a.from, a.to, 'rgba(224,148,46,.9)')).join('');
+  if (anno && anno.cur && anno.cur !== anno.from) s += arrowMarkup(anno.from, anno.cur, 'rgba(224,148,46,.65)');
+  svg.innerHTML = s;
+}
+function clearAnnotations() { userArrows = []; markedSquares.clear(); drawAnnotations(); }
 
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
@@ -491,6 +552,7 @@ function gameOverInfo() {
   return { kind, text };
 }
 function showBanner() {
+  stopClock();
   const { kind, text } = gameOverInfo();
   const el = document.getElementById('banner');
   el.className = 'banner show ' + kind;
@@ -565,7 +627,7 @@ function renderHistory() {
 
 // ----- takeback -----
 function undo() {
-  if (thinking || pendingPromo) return;
+  if (thinking || pendingPromo || timedOut) return;
   if (game.turn() !== humanColor || game.history().length < 2) return;
   game.undo(); game.undo();                       // undo engine reply + your move
   const hist = game.history({ verbose: true });
@@ -593,9 +655,16 @@ function moveGhost(img, x, y) { const s = parseFloat(img.style.width); img.style
 function squareAtPoint(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.sq'); return c ? c.dataset.sq : null; }
 
 function onPointerDown(e) {
-  if (thinking || game.game_over() || pendingPromo) return;
   const cell = e.target.closest('.sq'); if (!cell) return;
   const sq = cell.dataset.sq;
+
+  // Right button -> annotation (draw arrows / mark squares), never moves a piece.
+  if (e.button === 2) { e.preventDefault(); anno = { from: sq, cur: sq }; return; }
+
+  // Left button on the board clears any drawn annotations (standard behaviour).
+  if (userArrows.length || markedSquares.size) clearAnnotations();
+
+  if (thinking || game.game_over() || pendingPromo || timedOut) return;
   hintMove = null;                                   // any interaction clears the hint
   if (selected && selected_moves.includes(sq)) { doMove(selected, sq); return; }  // click-to-move
   const piece = game.get(sq);
@@ -606,10 +675,28 @@ function onPointerDown(e) {
   } else { clearSelection(); renderBoard(); }
 }
 function onPointerMove(e) {
+  if (anno) {                                        // live preview of the arrow
+    const sq = squareAtPoint(e.clientX, e.clientY);
+    if (sq && sq !== anno.cur) { anno.cur = sq; drawAnnotations(); }
+    return;
+  }
   if (!drag || !drag.ghost) return;
   drag.moved = true; moveGhost(drag.ghost, e.clientX, e.clientY);
 }
 function onPointerUp(e) {
+  if (anno) {                                        // finish an annotation
+    const to = squareAtPoint(e.clientX, e.clientY) || anno.cur;
+    const from = anno.from; anno = null;
+    if (to === from) {                               // a click -> toggle a red square
+      markedSquares.has(from) ? markedSquares.delete(from) : markedSquares.add(from);
+      renderBoard();
+    } else {                                         // a drag -> toggle an arrow
+      const i = userArrows.findIndex(a => a.from === from && a.to === to);
+      if (i >= 0) userArrows.splice(i, 1); else userArrows.push({ from, to });
+      drawAnnotations();
+    }
+    return;
+  }
   if (!drag) return;
   const d = drag; drag = null;
   if (d.ghost) d.ghost.remove();
@@ -618,7 +705,9 @@ function onPointerUp(e) {
   renderBoard();   // a tap (not a drag): restore the piece and keep it selected
 }
 
-document.getElementById('board').addEventListener('pointerdown', onPointerDown);
+const boardEl = document.getElementById('board');
+boardEl.addEventListener('pointerdown', onPointerDown);
+boardEl.addEventListener('contextmenu', e => e.preventDefault());  // allow right-click drawing
 document.addEventListener('pointermove', onPointerMove);
 document.addEventListener('pointerup', onPointerUp);
 
@@ -637,15 +726,90 @@ async function engineMove() {
   setStatus(`Engine played ${m.san}. Your move.`);
 }
 
+// ----------------------------- clock -----------------------------
+function fmtTime(ms) {
+  if (ms < 0) ms = 0;
+  const s = Math.ceil(ms / 1000), m = Math.floor(s / 60);
+  return m + ':' + String(s % 60).padStart(2, '0');
+}
+function updateClocks() {
+  const oppMs = humanColor === 'w' ? blackMs : whiteMs;
+  const myMs = humanColor === 'w' ? whiteMs : blackMs;
+  const top = document.getElementById('clockTop'), bot = document.getElementById('clockBot');
+  document.getElementById('timeTop').textContent = timeControl ? fmtTime(oppMs) : '∞';
+  document.getElementById('timeBot').textContent = timeControl ? fmtTime(myMs) : '∞';
+  const myTurn = game.turn() === humanColor, live = timeControl && !game.game_over() && !timedOut;
+  bot.classList.toggle('active', live && myTurn);
+  top.classList.toggle('active', live && !myTurn);
+  bot.classList.toggle('low', timeControl && myMs <= 10000);
+  top.classList.toggle('low', timeControl && oppMs <= 10000);
+}
+function stopClock() { if (clockTimer) { clearInterval(clockTimer); clockTimer = null; } }
+function startClock() {
+  stopClock(); updateClocks();
+  if (!timeControl) return;
+  lastTick = Date.now();
+  clockTimer = setInterval(() => {
+    if (game.game_over() || timedOut) { stopClock(); return; }
+    const now = Date.now(); const dt = now - lastTick; lastTick = now;
+    if (game.turn() === 'w') whiteMs -= dt; else blackMs -= dt;
+    if (whiteMs <= 0 || blackMs <= 0) flag();
+    updateClocks();
+  }, 100);
+}
+function flag() {
+  timedOut = true; stopClock();
+  whiteMs = Math.max(0, whiteMs); blackMs = Math.max(0, blackMs);
+  const humanLost = (whiteMs <= 0 && humanColor === 'w') || (blackMs <= 0 && humanColor === 'b');
+  const el = document.getElementById('banner');
+  el.className = 'banner show ' + (humanLost ? 'loss' : 'win');
+  document.getElementById('bannerText').textContent = humanLost ? '⏱ You lost on time.' : '⏱ You win — the engine flagged!';
+  setStatus('Game over — flag fell.'); updateClocks();
+}
+
+// ----------------------------- material / captured pieces -----------------------------
+const _PVAL = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+function pieceMini(color, type) {
+  const shade = color === 'w' ? 'l' : 'd';
+  const primary = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${color}${type}.png`;
+  const fb = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${type}${shade}t45.svg`;
+  return `<img src="${primary}" alt="" onerror="this.onerror=null;this.src='${fb}'">`;
+}
+function renderMaterial() {
+  const cnt = { w: {}, b: {} };
+  game.board().forEach(row => row.forEach(c => { if (c) cnt[c.color][c.type] = (cnt[c.color][c.type] || 0) + 1; }));
+  const start = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+  let capByWhite = '', capByBlack = '', diff = 0;
+  for (const t of ['q', 'r', 'b', 'n', 'p']) {
+    const w = start[t] - (cnt.b[t] || 0);   // black pieces White has captured
+    const b = start[t] - (cnt.w[t] || 0);   // white pieces Black has captured
+    for (let i = 0; i < w; i++) capByWhite += pieceMini('b', t);
+    for (let i = 0; i < b; i++) capByBlack += pieceMini('w', t);
+    diff += _PVAL[t] * ((cnt.w[t] || 0) - (cnt.b[t] || 0));
+  }
+  const youWhite = humanColor === 'w';
+  const youCap = youWhite ? capByWhite : capByBlack;
+  const oppCap = youWhite ? capByBlack : capByWhite;
+  const youDiff = youWhite ? diff : -diff;
+  document.getElementById('capYou').innerHTML = youCap + (youDiff > 0 ? `<span class="adv">+${youDiff}</span>` : '');
+  document.getElementById('capOpp').innerHTML = oppCap + (youDiff < 0 ? `<span class="adv">+${-youDiff}</span>` : '');
+}
+
 // ----------------------------- controls -----------------------------
 function newGame() {
   const sideSel = document.getElementById('side').value;
   humanColor = sideSel === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideSel;
   orientation = humanColor === 'w' ? 'white' : 'black';
-  game.reset(); clearSelection(); lastMove = null; hintMove = null; thinking = false; pendingPromo = null;
+  game.reset(); clearSelection(); clearAnnotations(); lastMove = null; hintMove = null; thinking = false; pendingPromo = null;
   document.getElementById('promo').classList.remove('show');
+  // clock setup
+  timeControl = parseInt(document.getElementById('timeCtl').value, 10) || 0;
+  whiteMs = blackMs = timeControl * 60000; timedOut = false;
+  document.getElementById('clockCard').style.display = timeControl ? 'block' : 'none';
+  document.getElementById('whoTop').textContent = 'Engine (' + (humanColor === 'w' ? 'Black' : 'White') + ')';
+  document.getElementById('whoBot').textContent = 'You (' + (humanColor === 'w' ? 'White' : 'Black') + ')';
   hideBanner(); setEval(0.5); document.getElementById('moves').innerHTML = '<li><span class="meta">Press “Hint”.</span></li>';
-  renderBoard(); renderHistory();
+  renderBoard(); renderHistory(); startClock();
   setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — click or drag a piece to move it.`);
   if (game.turn() !== humanColor) {                 // engine opens (you chose Black)
     thinking = true; setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
@@ -656,10 +820,11 @@ document.getElementById('bannerNew').onclick = newGame;
 document.getElementById('undoBtn').onclick = undo;
 document.getElementById('side').onchange = newGame;            // switching colour restarts
 document.getElementById('difficulty').onchange = e => { difficulty = parseInt(e.target.value, 10); };
+document.getElementById('timeCtl').onchange = newGame;          // changing time control restarts
 document.getElementById('flipBtn').onclick = () => { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); };
 document.getElementById('showMoves').onchange = () => { if (selected) selectSquare(selected); };
 document.getElementById('hintBtn').onclick = async () => {
-  if (game.game_over() || thinking) return;
+  if (game.game_over() || thinking || timedOut) return;
   setStatus('Analysing…');
   const data = await ask('analyze', 3);
   if (data.error) { setStatus(DOWN_MSG); return; }
