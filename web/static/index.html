@@ -102,10 +102,11 @@
   .play-wrap { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
 
   .board-frame {
-    /* Fit the board to the viewport: never wider than its column, never taller
-       than the space left under the header -- so it sits cleanly without scrolling. */
-    --size: min(560px, 88vw, calc(100vh - 210px));
-    padding: clamp(8px, 1.6vw, 18px);
+    /* Fit the board to whichever is smallest: a sensible max, the available
+       width, or ~68% of the viewport HEIGHT (leaving room for the header, status
+       line and panel) -- so the whole board is always visible without zooming. */
+    --size: min(540px, 90vw, 68vh);
+    padding: clamp(6px, 1.4vw, 16px);
     border-radius: 14px;
     background: linear-gradient(145deg, #6b4a2e, var(--frame) 60%, #3f2a1a);
     box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
