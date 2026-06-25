@@ -99,14 +99,14 @@
   .muted { color: var(--muted); }
 
   /* ---- play layout ---- */
-  .play-wrap { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  .play-wrap { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
 
   .board-frame {
     /* As large as possible while still guaranteed to fit: whichever is smallest
        of a big max, the available width, or ~74% of the viewport HEIGHT (which
        leaves just enough for the header + status line, so the whole board is
        always visible without zooming). */
-    --size: min(720px, 92vw, 74vh);
+    --size: min(820px, 94vw, 78vh);
     padding: clamp(6px, 1.2vw, 14px);
     border-radius: 14px;
     background: linear-gradient(145deg, #6b4a2e, var(--frame) 60%, #3f2a1a);
@@ -143,7 +143,7 @@
       border: 5px solid rgba(40,25,10,.30); border-radius: 50%; }
 
   /* ---- side panel ---- */
-  .panel-col { width: 320px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .panel-col { width: 300px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; }
   .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
   .pcard h4 { margin: 0 0 12px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -186,11 +186,11 @@
   .caprow { margin-bottom: 8px; }
   .caprow:last-child { margin-bottom: 0; }
   .caprow .lbl { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
-  /* engine-thinking spinner */
-  .spinner { position: absolute; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center; pointer-events: none; }
-  .spinner.show { display: flex; }
-  .spinner .ring { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(20,15,10,.25);
-      border-top-color: var(--gold); animation: spin .8s linear infinite; box-shadow: 0 2px 12px rgba(0,0,0,.35); }
+  /* engine-thinking loader (off the board, next to the status text) */
+  .statusrow { display: flex; align-items: center; gap: 9px; margin-top: 8px; min-height: 22px; }
+  .loader { display: none; width: 16px; height: 16px; border-radius: 50%; flex: none;
+      border: 3px solid rgba(212,162,76,.30); border-top-color: var(--gold); animation: spin .8s linear infinite; }
+  .loader.show { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* "your turn" board pulse */
   .board-frame.yourturn { animation: yourturn .9s ease; }
@@ -285,10 +285,9 @@
             <svg class="arrows" id="annotations" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
             <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
             <div class="promo-overlay" id="promo"><div class="promo-box" id="promoBox"></div></div>
-            <div class="spinner" id="spinner"><div class="ring"></div></div>
           </div>
         </div>
-        <p id="status" style="margin-top:8px;">You play White. Click a piece then its destination — or drag it.</p>
+        <div class="statusrow"><span class="loader" id="spinner"></span><span id="status">You play White. Click a piece then its destination — or drag it.</span></div>
         <div class="opening" id="opening"></div>
       </div>
 
@@ -301,6 +300,7 @@
             <button class="btn ghost" id="undoBtn">Undo</button>
             <button class="btn ghost" id="flipBtn">Flip</button>
             <button class="btn ghost" id="pgnBtn">Copy PGN</button>
+            <button class="btn ghost" id="soundBtn">🔊 Sound</button>
           </div>
           <div class="optrow"><span>Play as</span>
             <select id="side">
@@ -325,7 +325,6 @@
             </select>
           </div>
           <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
-          <label class="toggle"><input type="checkbox" id="soundOn" checked /> Sound effects</label>
           <p class="muted" style="font-size:12px;margin:10px 0 0;">Tip: right-click + drag to draw an arrow; right-click a square to mark it. Keys: N new · F flip · U undo · H hint.</p>
         </div>
 
@@ -950,7 +949,11 @@ document.getElementById('hintBtn').onclick = async () => {
     setStatus('Engine recommends: ' + (best ? best.san : '—'));
   }
 };
-document.getElementById('soundOn').onchange = e => { soundOn = e.target.checked; if (soundOn) ensureAudio(); };
+document.getElementById('soundBtn').onclick = () => {
+  soundOn = !soundOn;
+  document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sound' : '🔇 Muted';
+  if (soundOn) { ensureAudio(); playSound('move'); }
+};
 document.getElementById('pgnBtn').onclick = async () => {
   const pgn = game.pgn();
   if (!pgn) { setStatus('No moves to copy yet.'); return; }
