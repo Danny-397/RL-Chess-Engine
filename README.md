@@ -295,21 +295,28 @@ fitting the data, and is the engine actually getting stronger?*
 
 ### Training results (and an honest note on scale)
 
-Below is a short **CPU** training run (~19 iterations, ~100 self-play games):
+Below is a real **GPU (Colab)** training run — 12 iterations, ~96 self-play games:
 
 ![training progress](assets/training_progress.png)
 
-The **policy loss drops sharply** (4.7 → ~0.9): the network is clearly learning to
-imitate the search. But two things are visible and worth being honest about:
+The **policy loss drops sharply** (4.6 → ~0.88): the network rapidly learns to imitate
+its own search — clear evidence the RL machinery works. But, being honest about what
+the numbers show:
 
-1. The **value loss sits near zero**, and
-2. the engine does **not yet beat the random baseline** (Elo ≈ 0).
+1. The **value loss collapses toward zero**, and
+2. the engine still only **draws the random baseline** (it went +0 =8 across the last
+   eval — the small Elo wiggle is just one game's noise, not a real strength gain).
 
-Both have the same cause — a **draw cycle**. A weak engine's self-play games almost
-always run to the move cap and end in *draws*, so the value target is almost always
-`0`; the value head learns only to predict "even," which keeps the search weak, which
-keeps games drawish. Escaping this requires **far more (and more decisive) self-play
-games** than a single CPU can produce in reasonable time.
+Both have the same cause — a **draw cycle**. A still-weak network can't *convert*, so
+its self-play games run long and end in draws; the value target is therefore almost
+always `0`, the value head learns only to predict "even," and the search stays weak.
+Escaping it needs **far more self-play than a short run provides** — AlphaZero used
+*millions* of games; this run played under a hundred. The learning *mechanism* is
+correct and visible; reaching strength is a compute story, not an algorithm one.
+
+> This is exactly why the **live demo plays via the classical alpha-beta engine** — it
+> gives a genuinely strong opponent today, while the neural network above remains the
+> from-scratch *learning* project.
 
 **To train a genuinely strong engine**, run on a GPU with more self-play. A ready-made
 Colab notebook does exactly this on free, dedicated compute (so it won't crash from a
