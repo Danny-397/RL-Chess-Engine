@@ -70,7 +70,7 @@
   nav button:hover { color: var(--ink); background: rgba(255,255,255,.04); }
   nav button.active { color: var(--gold); background: rgba(212,162,76,.10); }
 
-  main { max-width: 1140px; margin: 0 auto; padding: 28px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 28px; }
   .view { display: none; animation: fade .25s ease; }
   .view.active { display: block; }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
@@ -102,11 +102,12 @@
   .play-wrap { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
 
   .board-frame {
-    /* Fit the board to whichever is smallest: a sensible max, the available
-       width, or ~68% of the viewport HEIGHT (leaving room for the header, status
-       line and panel) -- so the whole board is always visible without zooming. */
-    --size: min(540px, 90vw, 68vh);
-    padding: clamp(6px, 1.4vw, 16px);
+    /* As large as possible while still guaranteed to fit: whichever is smallest
+       of a big max, the available width, or ~74% of the viewport HEIGHT (which
+       leaves just enough for the header + status line, so the whole board is
+       always visible without zooming). */
+    --size: min(720px, 92vw, 74vh);
+    padding: clamp(6px, 1.2vw, 14px);
     border-radius: 14px;
     background: linear-gradient(145deg, #6b4a2e, var(--frame) 60%, #3f2a1a);
     box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12);
@@ -287,7 +288,7 @@
             <div class="spinner" id="spinner"><div class="ring"></div></div>
           </div>
         </div>
-        <p id="status" style="margin-top:14px;">You play White. Click a piece then its destination — or drag it.</p>
+        <p id="status" style="margin-top:8px;">You play White. Click a piece then its destination — or drag it.</p>
         <div class="opening" id="opening"></div>
       </div>
 
