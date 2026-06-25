@@ -41,6 +41,80 @@ _VALUE = {
 _MATE = 1_000_000          # score for delivering mate (depth-adjusted below)
 _INF = 10_000_000
 
+# Piece-square tables (centipawns) -- the classic "Simplified Evaluation"
+# positional bonuses. They give the engine a sense of *where* pieces belong
+# (knights/bishops toward the centre, pawns in the centre, king tucked away),
+# so it plays sensible openings and development instead of shuffling material-
+# equal moves at random. Written from White's view with index 0 = a8 .. 63 = h1.
+_PST = {
+    chess.PAWN: [
+         0,  0,  0,  0,  0,  0,  0,  0,
+        50, 50, 50, 50, 50, 50, 50, 50,
+        10, 10, 20, 30, 30, 20, 10, 10,
+         5,  5, 10, 25, 25, 10,  5,  5,
+         0,  0,  0, 20, 20,  0,  0,  0,
+         5, -5,-10,  0,  0,-10, -5,  5,
+         5, 10, 10,-20,-20, 10, 10,  5,
+         0,  0,  0,  0,  0,  0,  0,  0,
+    ],
+    chess.KNIGHT: [
+        -50,-40,-30,-30,-30,-30,-40,-50,
+        -40,-20,  0,  0,  0,  0,-20,-40,
+        -30,  0, 10, 15, 15, 10,  0,-30,
+        -30,  5, 15, 20, 20, 15,  5,-30,
+        -30,  0, 15, 20, 20, 15,  0,-30,
+        -30,  5, 10, 15, 15, 10,  5,-30,
+        -40,-20,  0,  5,  5,  0,-20,-40,
+        -50,-40,-30,-30,-30,-30,-40,-50,
+    ],
+    chess.BISHOP: [
+        -20,-10,-10,-10,-10,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5, 10, 10,  5,  0,-10,
+        -10,  5,  5, 10, 10,  5,  5,-10,
+        -10,  0, 10, 10, 10, 10,  0,-10,
+        -10, 10, 10, 10, 10, 10, 10,-10,
+        -10,  5,  0,  0,  0,  0,  5,-10,
+        -20,-10,-10,-10,-10,-10,-10,-20,
+    ],
+    chess.ROOK: [
+         0,  0,  0,  0,  0,  0,  0,  0,
+         5, 10, 10, 10, 10, 10, 10,  5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+        -5,  0,  0,  0,  0,  0,  0, -5,
+         0,  0,  0,  5,  5,  0,  0,  0,
+    ],
+    chess.QUEEN: [
+        -20,-10,-10, -5, -5,-10,-10,-20,
+        -10,  0,  0,  0,  0,  0,  0,-10,
+        -10,  0,  5,  5,  5,  5,  0,-10,
+         -5,  0,  5,  5,  5,  5,  0, -5,
+          0,  0,  5,  5,  5,  5,  0, -5,
+        -10,  5,  5,  5,  5,  5,  0,-10,
+        -10,  0,  5,  0,  0,  0,  0,-10,
+        -20,-10,-10, -5, -5,-10,-10,-20,
+    ],
+    chess.KING: [  # middlegame: keep the king tucked in a corner behind pawns
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -30,-40,-40,-50,-50,-40,-40,-30,
+        -20,-30,-30,-40,-40,-30,-30,-20,
+        -10,-20,-20,-20,-20,-20,-20,-10,
+         20, 20,  0,  0,  0,  0, 20, 20,
+         20, 30, 10,  0,  0, 10, 30, 20,
+    ],
+}
+
+
+def _pst_index(square: int, color: chess.Color) -> int:
+    """Index into a piece-square table for ``square`` from ``color``'s view."""
+    rank, file = chess.square_rank(square), chess.square_file(square)
+    return (7 - rank) * 8 + file if color == chess.WHITE else rank * 8 + file
+
 
 def _mopup_cp(board: chess.Board, strong: chess.Color) -> float:
     """Endgame bonus (centipawns) for ``strong`` cornering the losing king."""
@@ -63,20 +137,34 @@ def _mopup_cp(board: chess.Board, strong: chess.Color) -> float:
 
 
 def evaluate(board: chess.Board) -> float:
-    """Static evaluation in centipawns, from the side-to-move's perspective."""
-    material = 0
-    for piece_type, value in _VALUE.items():
-        material += value * (
-            len(board.pieces(piece_type, board.turn))
-            - len(board.pieces(piece_type, not board.turn))
-        )
-    score = float(material)
-    # Once clearly ahead, add the mop-up term so the win can be converted.
-    if abs(material) >= 400:
-        strong = board.turn if material > 0 else not board.turn
+    """Static evaluation in centipawns, from the side-to-move's perspective.
+
+    Normal positions are scored as **material + piece-square positional bonuses**
+    (so the engine develops sensibly and fights for the centre).  Once a side is
+    clearly winning (>= a rook up) we switch to **material + endgame mop-up** to
+    convert the win into checkmate (the middlegame king table would otherwise keep
+    the king passive in the endgame).
+    """
+    material_white = 0   # centipawns, White's perspective
+    pst_white = 0
+    for square, piece in board.piece_map().items():
+        value = _VALUE.get(piece.piece_type, 0)
+        pst = _PST[piece.piece_type][_pst_index(square, piece.color)]
+        if piece.color == chess.WHITE:
+            material_white += value
+            pst_white += pst
+        else:
+            material_white -= value
+            pst_white -= pst
+
+    if abs(material_white) >= 400:  # decisive material edge -> convert to mate
+        strong = chess.WHITE if material_white > 0 else chess.BLACK
         mop = _mopup_cp(board, strong)
-        score += mop if material > 0 else -mop
-    return score
+        white = material_white + (mop if strong == chess.WHITE else -mop)
+    else:                            # normal play -> use positional knowledge
+        white = material_white + pst_white
+
+    return float(white if board.turn == chess.WHITE else -white)
 
 
 def _is_drawn(board: chess.Board) -> bool:
