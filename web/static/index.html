@@ -272,6 +272,25 @@
         <p>The live board uses a fast classical search so it plays sound chess today — captures,
            tactics and real checkmates.</p></div>
     </div>
+
+    <h2 class="section-title" style="margin-top:48px;">How this is different from other chess engines</h2>
+    <p class="muted" style="max-width:720px;">Most chess engines are pre-built black boxes. This one is about <em>understanding</em> how an engine learns and thinks.</p>
+    <div class="features">
+      <div class="card"><div class="ico">🧠</div><h3>It learns, it isn't told</h3>
+        <p>Engines like Stockfish run on decades of human-tuned chess knowledge. This one starts from
+           <em>random</em> and teaches <em>itself</em> — the AlphaZero idea — discovering good play from
+           its own games.</p></div>
+      <div class="card"><div class="ico">🔍</div><h3>It shows its thinking</h3>
+        <p>See the live evaluation, win probability and the moves it's considering, drawn as arrows on
+           the board. Most engines never let you see <em>why</em>.</p></div>
+      <div class="card"><div class="ico">📖</div><h3>Built from scratch to be understood</h3>
+        <p>The network, the search and the self-play loop are all written from scratch and explained in
+           plain English on the <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>
+           page. It's a learning tool, not just a player.</p></div>
+      <div class="card"><div class="ico">👀</div><h3>Watch it play itself</h3>
+        <p>Hit <strong>“Watch self-play”</strong> and the engine reasons through a whole game on its own —
+           exactly the kind of self-play it learns from.</p></div>
+    </div>
   </section>
 
   <!-- ===================== PLAY ===================== -->
@@ -300,6 +319,7 @@
             <button class="btn ghost" id="undoBtn">Undo</button>
             <button class="btn ghost" id="flipBtn">Flip</button>
             <button class="btn ghost" id="pgnBtn">Copy PGN</button>
+            <button class="btn ghost" id="watchBtn">▶ Watch self-play</button>
             <button class="btn ghost" id="soundBtn">🔊 Sound</button>
           </div>
           <div class="optrow"><span>Play as</span>
@@ -362,11 +382,25 @@
   <!-- ===================== HOW IT WORKS ===================== -->
   <section id="learn" class="view">
     <div class="prose">
-      <h1 class="serif" style="font-size:40px;margin:6px 0;">The depth behind the engine</h1>
+      <h1 class="serif" style="font-size:40px;margin:6px 0;">How the engine works</h1>
       <p class="muted">The same three ideas that powered DeepMind's AlphaZero — implemented from
         scratch to be read and understood, not just run.</p>
 
-      <h2>1 · One network, two heads</h2>
+      <div class="card" style="border-left:4px solid var(--gold); margin:18px 0;">
+        <h3 style="color:var(--gold); margin:0 0 8px;">The simple version (30 seconds)</h3>
+        <p style="margin:0 0 10px;">Nobody teaches the engine chess strategy. It only knows the rules.
+          It gets good through one repeating loop:</p>
+        <ol style="margin:0 0 10px; padding-left:20px;">
+          <li><strong>Guess.</strong> A neural network looks at the board and guesses the best moves and who's winning.</li>
+          <li><strong>Think.</strong> A search tries out those moves many moves deep to find something better than the first guess.</li>
+          <li><strong>Play itself.</strong> It plays thousands of games against itself using that search.</li>
+          <li><strong>Learn.</strong> Whoever won, it nudges the network toward the moves that led to wins — so next time the <em>guess</em> is already smarter.</li>
+        </ol>
+        <p style="margin:0;">Repeat millions of times and the engine bootstraps itself from random moves to real chess —
+          <strong>with zero human strategy added.</strong> Everything below is just that loop, in detail.</p>
+      </div>
+
+      <h2>1 · One network, two heads <span class="muted" style="font-size:15px;">— the "guess"</span></h2>
       <p>A position is encoded as an <strong>18 × 8 × 8</strong> stack of planes (piece locations,
         castling rights, …), always shown from the side-to-move's perspective. A residual
         convolutional network maps it to:</p>
@@ -376,7 +410,7 @@
         <li><strong>a value</strong> in [−1, 1] — "who is winning?"</li>
       </ul>
 
-      <h2>2 · Search that thinks ahead (MCTS + PUCT)</h2>
+      <h2>2 · Search that thinks ahead (MCTS + PUCT) <span class="muted" style="font-size:15px;">— the "think"</span></h2>
       <p>Each move, hundreds of simulations descend a search tree, balancing what looks good now
         against what's worth exploring, using the <strong>PUCT</strong> rule:</p>
       <div class="formula">a* = argmaxₐ [ Q(s,a) + c · P(s,a) · √(Σ N(s,b)) / (1 + N(s,a)) ]</div>
@@ -384,7 +418,7 @@
         prior <code>P</code>, damped by how often a move was tried). The most-visited move is the
         search's verdict — far stronger than the raw network.</p>
 
-      <h2>3 · The self-play loop</h2>
+      <h2>3 · The self-play loop <span class="muted" style="font-size:15px;">— "play itself" &amp; "learn"</span></h2>
       <div class="pipeline">
         <div class="step"><div class="n">01</div><div>Play a full game against itself, picking moves with MCTS.</div></div>
         <div class="step"><div class="n">02</div><div>Record every <em>(position, search-policy, who-won)</em> triple.</div></div>
@@ -549,6 +583,7 @@ let anno = null;             // {from, cur} during a right-drag
 let timeControl = 0;         // minutes per side; 0 = unlimited
 let whiteMs = 0, blackMs = 0;
 let clockTimer = null, lastTick = 0, timedOut = false;
+let selfplay = false;        // "watch the engine play itself" mode
 
 function pieceImg(color, type) {
   const shade = color === 'w' ? 'l' : 'd';
@@ -734,7 +769,7 @@ function renderHistory() {
 
 // ----- takeback -----
 function undo() {
-  if (thinking || pendingPromo || timedOut) return;
+  if (thinking || pendingPromo || timedOut || selfplay) return;
   if (game.turn() !== humanColor || game.history().length < 2) return;
   game.undo(); game.undo();                       // undo engine reply + your move
   const hist = game.history({ verbose: true });
@@ -772,7 +807,7 @@ function onPointerDown(e) {
   // Left button on the board clears any drawn annotations (standard behaviour).
   if (userArrows.length || markedSquares.size) clearAnnotations();
 
-  if (thinking || game.game_over() || pendingPromo || timedOut) return;
+  if (thinking || game.game_over() || pendingPromo || timedOut || selfplay) return;
   hintMove = null;                                   // any interaction clears the hint
   if (selected && selected_moves.includes(sq)) { doMove(selected, sq); return; }  // click-to-move
   const piece = game.get(sq);
@@ -908,6 +943,7 @@ function renderMaterial() {
 // ----------------------------- controls -----------------------------
 function newGame() {
   ensureAudio();   // a button click is a user gesture -> unlock audio
+  stopSelfPlay();  // leave spectator mode if it was running
   const sideSel = document.getElementById('side').value;
   humanColor = sideSel === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideSel;
   orientation = humanColor === 'w' ? 'white' : 'black';
@@ -935,7 +971,7 @@ document.getElementById('timeCtl').onchange = newGame;          // changing time
 document.getElementById('flipBtn').onclick = () => { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); };
 document.getElementById('showMoves').onchange = () => { if (selected) selectSquare(selected); };
 document.getElementById('hintBtn').onclick = async () => {
-  if (game.game_over() || thinking || timedOut) return;
+  if (game.game_over() || thinking || timedOut || selfplay) return;
   setStatus('Analysing…');
   const data = await ask('analyze', 3);
   if (data.error) { setStatus(DOWN_MSG); return; }
@@ -953,6 +989,47 @@ document.getElementById('soundBtn').onclick = () => {
   soundOn = !soundOn;
   document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sound' : '🔇 Muted';
   if (soundOn) { ensureAudio(); playSound('move'); }
+};
+
+// ----------------------------- watch self-play (engine vs engine) -----------------------------
+function stopSelfPlay() {
+  selfplay = false; hideSpinner();
+  document.getElementById('watchBtn').textContent = '▶ Watch self-play';
+}
+async function runSelfPlay() {
+  // Spectator mode: the classical engine plays both sides until the game ends.
+  if (game.game_over() || timedOut) {  // start from a fresh board if the last game ended
+    game.reset(); clearSelection(); clearAnnotations();
+    lastMove = null; hintMove = null; timedOut = false; hideBanner();
+  }
+  stopClock();                          // the clock is irrelevant while spectating
+  selfplay = true;
+  document.getElementById('watchBtn').textContent = '⏹ Stop';
+  let plies = 0;
+  while (selfplay && !game.game_over() && plies < 300) {
+    setStatus(`Self-play: ${game.turn() === 'w' ? 'White' : 'Black'} to move…`);
+    showSpinner();
+    const data = await ask('engine_move', 3);
+    hideSpinner();
+    if (!selfplay) return;              // user pressed Stop mid-search
+    if (data.error) { setStatus(DOWN_MSG); break; }
+    if (data.game_over) { renderBoard(); showBanner(); break; }
+    const m = data.move;
+    const mv = game.move({ from: m.uci.slice(0, 2), to: m.uci.slice(2, 4), promotion: m.uci.length > 4 ? m.uci[4] : undefined });
+    playSound(soundForMove(mv));
+    lastMove = { from: m.uci.slice(0, 2), to: m.uci.slice(2, 4) };
+    renderBoard(); renderHistory();
+    setEval(data.white_win_probability); setMoves(data.suggestions);
+    plies++;
+    if (game.game_over()) { showBanner(); break; }
+    await new Promise(r => setTimeout(r, 650));  // pacing so it's watchable
+  }
+  stopSelfPlay();
+}
+document.getElementById('watchBtn').onclick = () => {
+  ensureAudio();
+  if (selfplay) { stopSelfPlay(); setStatus('Self-play stopped — your move.'); return; }
+  runSelfPlay();
 };
 document.getElementById('pgnBtn').onclick = async () => {
   const pgn = game.pgn();
