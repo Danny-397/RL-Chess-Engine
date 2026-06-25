@@ -1,0 +1,7 @@
+# Extra dependencies for *training* the AlphaZero network and running the tests.
+# Not needed just to play the web/console demo (that uses the torch-free
+# alpha-beta engine).  Install alongside the runtime deps:
+#   pip install -r requirements.txt -r requirements-train.txt
+torch>=2.0          # neural network + autograd
+numpy>=1.23         # tensor/array plumbing
+pytest>=7.0         # test suite (development only)

@@ -1,7 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": null,
-  "outputDirectory": "web/static",
-  "cleanUrls": true,
-  "rewrites": [{ "source": "/", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "web/static/**"
+    }
+  }
 }

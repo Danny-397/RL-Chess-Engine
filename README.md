@@ -88,11 +88,14 @@ prove they're correct:
 git clone https://github.com/Danny-397/RL-Chess-Engine.git
 cd RL-Chess-Engine
 python -m venv .venv && source .venv/bin/activate   # optional but recommended
-pip install -r requirements.txt
+
+pip install -r requirements.txt                     # play the demo (torch-free)
+pip install -r requirements-train.txt               # ALSO train the network + tests
 ```
 
-Requires Python 3.10+. A GPU is optional — the defaults are tuned to run on a
-laptop CPU.
+Requires Python 3.10+. The playable demo (classical engine) needs only
+`requirements.txt`; training the AlphaZero network and running the test suite also
+need `requirements-train.txt` (PyTorch). A GPU is optional.
 
 ---
 
@@ -144,21 +147,25 @@ Or configure a **Web Service** manually:
 The blueprint binds `0.0.0.0:$PORT` (Render injects `$PORT`; the local default is
 `127.0.0.1:8000`) and exposes a `/health` endpoint for the readiness check.
 
-#### Optional: frontend on Vercel
+#### Deploy the whole app to Vercel
 
-You usually **don't need Vercel** — the Render URL above is already a complete,
-playable site. If you specifically want the board on Vercel's CDN, deploy only the
-static frontend and point it at the Render backend:
+Because the demo engine is torch-free and tiny, the **entire site (board + API)
+now runs on Vercel** as a Python serverless function — no split, no separate
+backend. The repo is preconfigured for it:
 
-1. On Vercel, import this repo. A [`.vercelignore`](.vercelignore) excludes the
-   Python so Vercel does a clean **static** deploy of [`web/static`](web/static)
-   (no build, no serverless function — this is why the earlier *"main.py does not
-   define a top-level app"* error happened: Vercel was trying to build the backend).
-2. Point the page at your Render backend: open it with
-   `?api=https://your-app.onrender.com`, or edit `API_BASE` in
-   [web/static/index.html](web/static/index.html).
-3. Optionally restrict CORS on Render with
-   `RLCHESS_ALLOW_ORIGINS=https://your-site.vercel.app` (defaults to `*`).
+- [`api/index.py`](api/index.py) exports the FastAPI app as the serverless function;
+- [`vercel.json`](vercel.json) routes every request to it and bundles `web/static`;
+- the root [`requirements.txt`](requirements.txt) is torch-free, so the function
+  installs in seconds and stays well under Vercel's size limit;
+- [`.vercelignore`](.vercelignore) keeps the training stack out of the bundle.
+
+To deploy: on [Vercel](https://vercel.com), **Add New → Project**, import this
+repo, and **Deploy** (no settings to change). Open the URL and play.
+
+> This is why the earlier *"main.py does not define a top-level app"* error
+> happened — Vercel was trying to build the **old PyTorch** backend, which was far
+> too big for a serverless function. With the lightweight engine and `api/index.py`
+> exporting `app`, that's resolved.
 
 ### Play against the engine (console)
 
