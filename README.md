@@ -101,100 +101,71 @@ laptop CPU.
 ### Play in the browser (web UI)
 
 The most demoable way to play: a drag-and-drop board with a live evaluation bar
-and a "recommended moves" panel, served by a small FastAPI backend that wraps the
-engine.
+and a "recommended moves" panel.
 
 ```bash
-pip install fastapi "uvicorn[standard]"   # one-time, optional web extras
-python main.py --mode serve               # then open http://127.0.0.1:8000
+pip install -r requirements-web.txt   # python-chess + fastapi + uvicorn (no torch)
+python main.py --mode serve           # then open http://127.0.0.1:8000
 ```
 
-You play White by dragging pieces; the engine replies and shows its win estimate,
-the **Hint** button asks the engine to recommend moves for your position, and the
-eval bar tracks who's ahead. A banner announces checkmate/draw. The backend is
-stateless (the browser sends the position as FEN), and it reuses the exact same
-`analysis.py` logic as the console.
+You play White by dragging pieces; the engine replies, the **Hint** button asks
+it to recommend moves for your position, the eval bar tracks who's ahead, and a
+banner announces checkmate/draw. The backend is stateless (the browser sends the
+position as FEN).
 
-> **Why the bot plays sensibly even though the bundled net is barely trained:**
-> for *play* (not training) the search blends in a simple material heuristic
-> (`MCTSConfig.material_weight`, default `0.85` in play/serve, `0.0` in training).
-> This makes it capture hanging pieces, avoid blunders and find basic mates, so
-> it's a real opponent before a full GPU training run. Set
-> `--material-weight 0` (CLI) or `RLCHESS_MATERIAL_WEIGHT=0` (server) to play the
-> pure from-scratch network instead.
+> **Which engine plays you:** the web/console demo uses the **classical alpha-beta
+> searcher** ([`search.py`](search.py)) — material + endgame mop-up evaluation,
+> quiescence and capture ordering. It plays genuinely sound chess (captures, avoids
+> blunders, *converts* won positions into checkmate — it beats the random baseline
+> 10/0) and needs **no PyTorch**. The AlphaZero network + MCTS is the *learning*
+> project (trained via the [Colab notebook](#training-results-and-an-honest-note-on-scale));
+> it's kept separate because an untrained network can't yet play well. Tune the
+> searcher's strength with `--depth` (CLI) or `RLCHESS_DEPTH` (server); 3 is snappy,
+> 4 is stronger.
 
-#### Deploy the web UI to Render
+#### Deploy the web UI to Render (one lightweight service)
 
-A [`render.yaml`](render.yaml) blueprint is included, so you can host the board
-online:
+Because the demo engine is torch-free, the whole site — board **and** API — runs
+as a single tiny service that fits Render's free tier. A [`render.yaml`](render.yaml)
+blueprint is included:
 
 1. Push this repo to GitHub (already done if you cloned it from there).
-2. On [Render](https://render.com): **New + → Blueprint**, pick this repo, and
-   apply. Render reads `render.yaml` and provisions the web service.
-3. Open the URL Render gives you and play.
+2. On [Render](https://render.com): **New + → Blueprint**, pick this repo, **Apply**.
+3. Open the URL Render gives you and play. That URL is the complete site.
 
-Or configure a **Web Service** manually with these settings:
+Or configure a **Web Service** manually:
 
 | Setting | Value |
 |---|---|
-| Build command | `pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt` |
+| Build command | `pip install --upgrade pip && pip install -r requirements-web.txt` |
 | Start command | `uvicorn web.server:app --host 0.0.0.0 --port $PORT` |
-| Env var | `RLCHESS_SIMULATIONS=60` (lower = faster responses) |
+| Env var | `RLCHESS_DEPTH=3` (4 = stronger, slower) |
 
-Two gotchas the blueprint already handles:
+The blueprint binds `0.0.0.0:$PORT` (Render injects `$PORT`; the local default is
+`127.0.0.1:8000`) and exposes a `/health` endpoint for the readiness check.
 
-- **CPU-only PyTorch.** A plain `pip install torch` pulls a multi-gigabyte CUDA
-  wheel that overflows Render's build; the `--index-url .../whl/cpu` keeps it small.
-- **Port binding.** Render injects `$PORT`; the start command binds `0.0.0.0:$PORT`
-  (the local default is `127.0.0.1:8000`).
+#### Optional: frontend on Vercel
 
-> **Memory note:** PyTorch needs a fair bit of RAM. Render's *free* instance
-> (512 MB) may OOM when the model loads — if so, upgrade to a larger instance, or
-> lower `RLCHESS_SIMULATIONS`. The committed `example_checkpoint.pt` is served by
-> default; set `RLCHESS_CHECKPOINT` to point at a stronger one.
+You usually **don't need Vercel** — the Render URL above is already a complete,
+playable site. If you specifically want the board on Vercel's CDN, deploy only the
+static frontend and point it at the Render backend:
 
-#### Frontend on Vercel + backend on Render (split deploy)
-
-> **Simplest option — you may not need Vercel at all.** The Render web service
-> above already serves the board UI (at `/`) *and* the API from one place, so the
-> Render URL is a complete, working site on its own. Only do the split below if you
-> specifically want the frontend on Vercel's CDN (e.g. to match the TradeBot setup).
-
-**Vercel cannot host the backend** — it runs Python only as serverless functions
-with a 250 MB unzipped limit, and PyTorch alone is far larger. The standard
-pattern is to host the **static board on Vercel** and keep the **PyTorch API on
-Render**, with the page calling across to it:
-
-1. Deploy the backend to Render (above). Note its URL, e.g.
-   `https://rl-chess-engine.onrender.com`.
-2. Deploy the frontend to Vercel: import this repo and **set the project's Root
-   Directory to `web/static`** (Settings → Build & Deployment → Root Directory).
-   That subfolder contains only `index.html`, so Vercel deploys it as a pure
-   static site — no build, no Python.
-
-   > ⚠️ If you deploy from the **repo root** instead, Vercel sees `requirements.txt`
-   > and tries to build the Python backend, erroring with *"main.py does not define
-   > a top-level app … add `[tool.vercel] entrypoint = web.server:app`"*. **Do not
-   > add that entrypoint** — it would try to bundle PyTorch into a serverless
-   > function and blow Vercel's 250 MB limit. Setting Root Directory to `web/static`
-   > makes the error disappear by skipping the Python code entirely.
-3. Tell the frontend where the backend is, either by:
-   - opening it with `?api=https://rl-chess-engine.onrender.com`, or
-   - editing `API_BASE` at the top of the `<script>` in
-     [web/static/index.html](web/static/index.html).
-4. Lock down CORS on the Render backend by setting
-   `RLCHESS_ALLOW_ORIGINS=https://your-site.vercel.app` (it defaults to `*`).
-
-The backend already sends the right CORS headers, so the cross-origin calls from
-Vercel just work.
+1. On Vercel, import this repo. A [`.vercelignore`](.vercelignore) excludes the
+   Python so Vercel does a clean **static** deploy of [`web/static`](web/static)
+   (no build, no serverless function — this is why the earlier *"main.py does not
+   define a top-level app"* error happened: Vercel was trying to build the backend).
+2. Point the page at your Render backend: open it with
+   `?api=https://your-app.onrender.com`, or edit `API_BASE` in
+   [web/static/index.html](web/static/index.html).
+3. Optionally restrict CORS on Render with
+   `RLCHESS_ALLOW_ORIGINS=https://your-site.vercel.app` (defaults to `*`).
 
 ### Play against the engine (console)
 
-A small, ready-to-use checkpoint ships in `checkpoints/example_checkpoint.pt` so
-you can play immediately:
+Play the classical engine straight away (no checkpoint or torch needed):
 
 ```bash
-python main.py --mode play --checkpoint checkpoints/example_checkpoint.pt
+python main.py --mode play            # add --depth 4 for a stronger opponent
 ```
 
 You enter moves in standard algebraic notation (`e4`, `Nf3`, `O-O`, `exd5`,

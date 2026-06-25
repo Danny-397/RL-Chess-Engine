@@ -40,7 +40,8 @@ import chess
 
 from config import Config
 from chess_game import ChessGame
-from model import ChessNet
+# NOTE: torch-backed modules (model/training/analysis) are imported lazily inside
+# the functions that need them, so `play`/`analyze`/`serve` stay torch-free.
 
 
 # --------------------------------------------------------------------------- #
@@ -106,35 +107,32 @@ def strip_bom(text: str) -> str:
     return text
 
 
-def _load_engine(config: Config, checkpoint: str):
-    """Load a network for play, falling back to an untrained one if needed."""
-    from training import load_checkpoint  # lazy import (keeps startup snappy)
-
-    if checkpoint and os.path.exists(checkpoint):
-        print(f"Loaded engine from {checkpoint}")
-        return load_checkpoint(checkpoint, config)
-
-    print(
-        f"WARNING: checkpoint '{checkpoint}' not found -- playing against an "
-        "UNTRAINED (random) network.  Run training first for a real opponent."
-    )
-    return ChessNet(config.network).to(config.resolved_device()).eval()
+def _render_analysis(info: dict) -> str:
+    """Format the searcher's analysis dict for the console."""
+    if info.get("game_over"):
+        return f"Game over: {info.get('result', '*')}"
+    lines = [
+        f"Engine eval: {info['value']:+.2f}  "
+        f"(win probability for side to move: {info['win_probability']:.0%})",
+        "Recommended moves:",
+    ]
+    for i, s in enumerate(info["suggestions"], start=1):
+        lines.append(f"  {i}. {s['san']:<7} eval {s['value']:+.2f}")
+    return "\n".join(lines)
 
 
 def run_play(args: argparse.Namespace) -> None:
-    """Play a console game: human (SAN input) vs. the engine."""
-    config = _build_config(args)
-    if args.material_weight is None:  # default the assist ON for a real opponent
-        config.mcts.material_weight = 0.85
-    network = _load_engine(config, args.checkpoint)
+    """Play a console game: human (SAN input) vs. the classical alpha-beta engine."""
+    import search
 
+    depth = args.depth if args.depth is not None else 4
     human_is_white = args.color.lower() == "white"
     game = ChessGame()
 
-    print("\nYou are playing as", "White" if human_is_white else "Black")
+    print(f"\nYou are playing as {'White' if human_is_white else 'Black'} "
+          f"(engine: alpha-beta depth {depth})")
     print("Enter moves in algebraic notation (e.g. e4, Nf3, O-O).")
-    print("Commands: 'hint' = ask the engine for recommended moves,")
-    print("          'eval' = show the engine's evaluation of the position,")
+    print("Commands: 'hint'/'eval' = engine analysis of your position,")
     print("          'board' = redraw, 'quit' = resign.\n")
 
     while not game.is_terminal():
@@ -145,8 +143,6 @@ def run_play(args: argparse.Namespace) -> None:
         # boolean ``game.turn`` can be compared directly against ``human_is_white``.
         if game.turn == human_is_white:
             # ---- human's turn ----
-            # ```` (byte-order-mark) is stripped because some Windows
-            # shells prepend one to the first line when input is piped in.
             user_input = strip_bom(input("Your move: ")).strip()
             command = user_input.lower()
             if command in {"quit", "resign", "exit"}:
@@ -155,12 +151,8 @@ def run_play(args: argparse.Namespace) -> None:
             if command == "board":
                 continue
             if command in {"hint", "eval", "analyze"}:
-                # Ask the engine to assess *your* position and suggest moves.
-                from analysis import analyze_position
-
                 print("Analysing...")
-                analysis = analyze_position(network, game, config)
-                print(analysis.render() + "\n")
+                print(_render_analysis(search.analyze(game.board, depth=depth, top_n=3)) + "\n")
                 continue
             try:
                 game.push_san(user_input)
@@ -169,14 +161,11 @@ def run_play(args: argparse.Namespace) -> None:
                 continue
         else:
             # ---- engine's turn ----
-            from analysis import analyze_position
-
             print("Engine is thinking...")
-            analysis = analyze_position(network, game, config)
-            best = analysis.suggestions[0]  # most-searched move
-            game.push(best.move)
-            print(f"Engine plays: {best.san}  "
-                  f"(its win estimate: {best.win_probability:.0%})\n")
+            best_move, _, _ = search.search(game.board, depth=depth)
+            san = game.board.san(best_move)
+            game.push(best_move)
+            print(f"Engine plays: {san}\n")
 
     # ---- game over ----
     print(game)
@@ -195,14 +184,12 @@ def run_play(args: argparse.Namespace) -> None:
 def run_serve(args: argparse.Namespace) -> None:
     """Launch the browser-based UI (FastAPI + chessboard.js).
 
-    The web server reads its checkpoint / search budget from environment
-    variables, so we forward the CLI options through ``os.environ`` before
-    importing it.  Requires the optional web dependencies (``fastapi``,
-    ``uvicorn``) -- install them with ``pip install fastapi "uvicorn[standard]"``.
+    Uses the torch-free alpha-beta engine; ``--depth`` is forwarded via the
+    environment.  Requires the web dependencies (``pip install -r
+    requirements-web.txt``).
     """
-    os.environ["RLCHESS_CHECKPOINT"] = args.checkpoint
-    if args.simulations is not None:
-        os.environ["RLCHESS_SIMULATIONS"] = str(args.simulations)
+    if args.depth is not None:
+        os.environ["RLCHESS_DEPTH"] = str(args.depth)
 
     try:
         from web.server import main as serve_main
@@ -224,25 +211,32 @@ def run_analyze(args: argparse.Namespace) -> None:
     The position defaults to the standard opening but can be any legal position
     supplied as a FEN string via ``--fen``.
     """
-    from analysis import analyze_position
+    import search
 
-    config = _build_config(args)
-    if args.material_weight is None:  # default the assist ON for analysis too
-        config.mcts.material_weight = 0.85
-    network = _load_engine(config, args.checkpoint)
-
+    depth = args.depth if args.depth is not None else 4
     board = chess.Board(args.fen) if args.fen else chess.Board()
-    game = ChessGame(board)
 
-    print(game)
-    print(f"\n{'White' if game.turn == chess.WHITE else 'Black'} to move.\n")
-    analysis = analyze_position(network, game, config, top_n=args.top_n)
-    print(analysis.render(max_moves=args.top_n))
+    print(ChessGame(board))
+    print(f"\n{'White' if board.turn == chess.WHITE else 'Black'} to move "
+          f"(alpha-beta depth {depth}).\n")
+    print(_render_analysis(search.analyze(board, depth=depth, top_n=args.top_n)))
 
 
 # --------------------------------------------------------------------------- #
 # eval mode
 # --------------------------------------------------------------------------- #
+def _load_engine(config: Config, checkpoint: str):
+    """Load a trained network (used by `eval` mode). Torch is imported lazily."""
+    from training import load_checkpoint
+    from model import ChessNet
+
+    if checkpoint and os.path.exists(checkpoint):
+        print(f"Loaded engine from {checkpoint}")
+        return load_checkpoint(checkpoint, config)
+    print(f"WARNING: checkpoint '{checkpoint}' not found -- using an untrained network.")
+    return ChessNet(config.network).to(config.resolved_device()).eval()
+
+
 def run_eval(args: argparse.Namespace) -> None:
     """Play a match to measure engine strength and report an Elo estimate.
 
@@ -296,7 +290,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--games", type=int, default=None,
                         help="self-play games per iteration (train mode).")
     parser.add_argument("--simulations", type=int, default=None,
-                        help="MCTS simulations per move (all modes).")
+                        help="MCTS simulations per move (train/eval, neural engine).")
+    parser.add_argument("--depth", type=int, default=None,
+                        help="alpha-beta search depth for the classical engine "
+                             "(play/analyze/serve). Higher = stronger but slower.")
     parser.add_argument("--material-weight", type=float, default=None,
                         help="blend a material heuristic into the search, 0..1 "
                              "(play/analyze default to 0.85 for a stronger "

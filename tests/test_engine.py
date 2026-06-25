@@ -32,6 +32,7 @@ from evaluation import (
     NetworkAgent, RandomAgent, play_match, elo_difference,
 )
 from analysis import analyze_position, value_to_win_probability
+import search
 
 
 # --------------------------------------------------------------------------- #
@@ -151,6 +152,39 @@ def test_material_assist_captures_hanging_piece():
     game = ChessGame(chess.Board("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1"))
     best = analyze_position(net, game, cfg, top_n=1).suggestions[0]
     assert best.move.to_square == chess.D5  # captured the queen
+
+
+def test_search_captures_hanging_queen():
+    """The classical searcher wins free material."""
+    board = chess.Board("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1")
+    best, _, _ = search.search(board, depth=3)
+    assert best.to_square == chess.D5  # exd5 captures the queen
+
+
+def test_search_finds_mate_in_one():
+    """The searcher delivers an available checkmate."""
+    board = chess.Board("6k1/5ppp/8/8/8/8/5PPP/R5K1 w - - 0 1")
+    best, _, _ = search.search(board, depth=3)
+    board.push(best)
+    assert board.is_checkmate()  # Ra8#
+
+
+def test_search_ranks_moves_exactly():
+    """Root scores are exact, so a losing move is rated below a winning one."""
+    board = chess.Board("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1")
+    _, _, ranked = search.search(board, depth=3)
+    scores = {board.san(m): cp for m, cp in ranked}
+    assert scores["exd5"] > 0          # up a pawn after the capture
+    assert min(scores.values()) < -500  # ignoring the queen loses badly
+
+
+def test_search_analyze_shape():
+    """analyze() returns the JSON contract the web UI/console rely on."""
+    info = search.analyze(chess.Board(), depth=2, top_n=3)
+    assert info["game_over"] is False
+    assert {"white_win_probability", "suggestions", "move", "value"} <= set(info)
+    assert 1 <= len(info["suggestions"]) <= 3
+    assert info["move"]["uci"]
 
 
 def test_insufficient_material_is_a_draw():

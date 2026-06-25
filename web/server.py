@@ -1,41 +1,28 @@
 """web/server.py
 ================
 
-A small FastAPI backend that puts the engine behind a web UI.
+A small, **dependency-light** FastAPI backend that puts the chess engine behind a
+web UI.  It uses the classical alpha-beta searcher in :mod:`search` (no PyTorch),
+so the deployed service is tiny, fast and fits a free cloud instance -- and it
+plays genuinely sound chess (captures, avoids blunders, delivers mates).
 
-The server is intentionally **stateless**: the browser (using chess.js) owns the
-game and sends the current position as a FEN string with every request.  The
-server just answers two questions about a position:
+The server is **stateless**: the browser (chess.js) owns the game and sends the
+current position as a FEN with each request.  The server answers:
 
-* ``/analyze``     -- what does the engine think? (evaluation + recommended moves)
-* ``/engine_move`` -- what move would the engine play here?
-
-Both reuse :func:`analysis.analyze_position`, so the web UI, the console ``hint``
-command and the ``analyze`` CLI all share exactly the same engine logic.
+* ``/analyze``     -- evaluation + recommended moves for a position;
+* ``/engine_move`` -- the move the engine would play here.
 
 Run it with::
 
-    python web/server.py
-    # then open http://127.0.0.1:8000
-
-or via the unified CLI::
-
-    python main.py --mode serve
+    python web/server.py        # then open http://127.0.0.1:8000
+    # or:  python main.py --mode serve
 """
 
 from __future__ import annotations
 
-import dataclasses
 import os
 import sys
-from typing import List, Optional
-
-# Keep the memory footprint small enough for a modest cloud instance (e.g. a
-# free 512 MB Render service): one BLAS/torch thread avoids large per-thread
-# buffer pools.  These must be set before numpy/torch are imported below.
-os.environ.setdefault("OMP_NUM_THREADS", "1")
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("MKL_NUM_THREADS", "1")
+from typing import Optional
 
 # Allow ``python web/server.py`` to import the engine modules in the repo root.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -49,39 +36,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from config import Config
-from chess_game import ChessGame
-from model import ChessNet
-from analysis import analyze_position, value_to_win_probability
+import search
 
-
-# --------------------------------------------------------------------------- #
-# Engine setup (load the model once at startup)
-# --------------------------------------------------------------------------- #
-_CHECKPOINT = os.environ.get("RLCHESS_CHECKPOINT", "checkpoints/example_checkpoint.pt")
-_SIMULATIONS = int(os.environ.get("RLCHESS_SIMULATIONS", "120"))
-# Material assist on by default so the deployed bot plays real chess (captures
-# hanging pieces, avoids blunders) even with a lightly-trained network.
-_MATERIAL_WEIGHT = float(os.environ.get("RLCHESS_MATERIAL_WEIGHT", "0.85"))
-
-_config = Config()
-_config.mcts.num_simulations = _SIMULATIONS
-_config.mcts.material_weight = _MATERIAL_WEIGHT
-
-
-def _load_network() -> ChessNet:
-    """Load the configured checkpoint, or fall back to an untrained network."""
-    device = _config.resolved_device()
-    if os.path.exists(_CHECKPOINT):
-        from training import load_checkpoint
-
-        print(f"[web] loaded engine from {_CHECKPOINT}")
-        return load_checkpoint(_CHECKPOINT, _config, device)
-    print(f"[web] WARNING: '{_CHECKPOINT}' not found -- using an untrained network.")
-    return ChessNet(_config.network).to(device).eval()
-
-
-_network = _load_network()
+# Search depth (plies).  Higher = stronger but slower.  3 keeps the web snappy.
+_DEPTH = int(os.environ.get("RLCHESS_DEPTH", "3"))
 
 app = FastAPI(title="RL-Chess-Engine")
 
@@ -100,63 +58,21 @@ _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
 
 
-# --------------------------------------------------------------------------- #
-# Request / response models
-# --------------------------------------------------------------------------- #
 class PositionRequest(BaseModel):
-    """A position to reason about, plus an optional per-request search budget."""
+    """A position to reason about, plus optional per-request knobs."""
 
     fen: str
-    simulations: Optional[int] = None
+    depth: Optional[int] = None
     top_n: int = 3
+    # Accepted for backwards-compatibility with older clients; ignored.
+    simulations: Optional[int] = None
 
 
-def _analyse_fen(fen: str, simulations: Optional[int], top_n: int) -> dict:
-    """Shared helper: analyse a FEN and return a JSON-friendly dict.
-
-    Includes a White-perspective win probability so the front-end's evaluation
-    bar stays stable (it does not flip every time the side to move changes).
-    """
-    board = chess.Board(fen)
-    game = ChessGame(board)
-
-    # Terminal positions have no move to recommend.
-    if game.is_terminal():
-        return {
-            "game_over": True,
-            "result": board.result(claim_draw=True),
-            "suggestions": [],
-            "white_win_probability": None,
-        }
-
-    cfg = _config
-    if simulations is not None:
-        cfg = dataclasses.replace(
-            _config, mcts=dataclasses.replace(_config.mcts, num_simulations=simulations)
-        )
-
-    analysis = analyze_position(_network, game, cfg, top_n=top_n)
-
-    # Convert the side-to-move value into a fixed White-perspective probability.
-    white_value = analysis.value if board.turn == chess.WHITE else -analysis.value
-    suggestions: List[dict] = [
-        {
-            "san": s.san,
-            "uci": s.move.uci(),
-            "visit_fraction": s.visit_fraction,
-            "value": s.value,
-            "win_probability": s.win_probability,
-        }
-        for s in analysis.suggestions
-    ]
-    return {
-        "game_over": False,
-        "side_to_move": "white" if board.turn == chess.WHITE else "black",
-        "value": analysis.value,
-        "win_probability": analysis.win_probability,
-        "white_win_probability": value_to_win_probability(white_value),
-        "suggestions": suggestions,
-    }
+def _analyse(req: PositionRequest) -> dict:
+    """Run the searcher on the requested position and return a JSON dict."""
+    board = chess.Board(req.fen)
+    depth = req.depth if req.depth is not None else _DEPTH
+    return search.analyze(board, depth=depth, top_n=req.top_n)
 
 
 # --------------------------------------------------------------------------- #
@@ -168,22 +84,22 @@ def index() -> FileResponse:
     return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
 
 
+@app.get("/health")
+def health() -> dict:
+    """Lightweight readiness probe (also handy for pre-warming a cold instance)."""
+    return {"status": "ok", "depth": _DEPTH}
+
+
 @app.post("/analyze")
 def analyze(req: PositionRequest) -> dict:
     """Return the engine's evaluation and recommended moves for a position."""
-    return _analyse_fen(req.fen, req.simulations, req.top_n)
+    return _analyse(req)
 
 
 @app.post("/engine_move")
 def engine_move(req: PositionRequest) -> dict:
     """Return the move the engine would play (plus the supporting analysis)."""
-    info = _analyse_fen(req.fen, req.simulations, req.top_n)
-    if info["game_over"] or not info["suggestions"]:
-        return info
-    best = info["suggestions"][0]
-    info["move"] = {"uci": best["uci"], "san": best["san"],
-                    "win_probability": best["win_probability"]}
-    return info
+    return _analyse(req)  # analyze() already includes the chosen "move"
 
 
 def main() -> None:
@@ -192,7 +108,7 @@ def main() -> None:
 
     host = os.environ.get("RLCHESS_HOST", "127.0.0.1")
     port = int(os.environ.get("RLCHESS_PORT", "8000"))
-    print(f"[web] serving on http://{host}:{port}")
+    print(f"[web] serving on http://{host}:{port} (alpha-beta depth {_DEPTH})")
     uvicorn.run(app, host=host, port=port)
 
 

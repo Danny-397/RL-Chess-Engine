@@ -1,0 +1,7 @@
+# Minimal dependencies for the deployed web UI.
+# The web demo uses the classical alpha-beta engine (search.py), which needs only
+# python-chess -- NO PyTorch -- so the service is tiny, fast and fits a free
+# cloud instance. (Training the neural network still uses the full requirements.txt.)
+python-chess>=1.11
+fastapi>=0.110
+uvicorn>=0.27

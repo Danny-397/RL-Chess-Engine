@@ -58,6 +58,17 @@ _PIECE_VALUES = {
 }
 
 
+def _raw_material(board: chess.Board) -> float:
+    """Signed material balance in pawns, from the side-to-move's perspective."""
+    us, them = board.turn, not board.turn
+    diff = 0.0
+    for piece_type, value in _PIECE_VALUES.items():
+        diff += value * (
+            len(board.pieces(piece_type, us)) - len(board.pieces(piece_type, them))
+        )
+    return diff
+
+
 def material_score(board: chess.Board) -> float:
     """Material balance from the side-to-move's perspective, squashed to [-1, 1].
 
@@ -66,13 +77,70 @@ def material_score(board: chess.Board) -> float:
     as the network's value head (a queen up ≈ +0.8, a pawn up ≈ +0.12), letting
     the two be blended directly during search (see ``MCTSConfig.material_weight``).
     """
-    us, them = board.turn, not board.turn
-    diff = 0.0
-    for piece_type, value in _PIECE_VALUES.items():
-        diff += value * (
-            len(board.pieces(piece_type, us)) - len(board.pieces(piece_type, them))
-        )
-    return math.tanh(diff / 8.0)
+    return math.tanh(_raw_material(board) / 8.0)
+
+
+def _king_escape_squares(board: chess.Board, weak: chess.Color, strong: chess.Color) -> int:
+    """Count squares the losing king could flee to (0 == fully boxed in).
+
+    A square counts as an escape if it is adjacent to the king, not occupied by
+    one of its own pieces, and not attacked by the winning side. ``0`` escapes
+    means the king is trapped -- one good check away from mate (or a stalemate the
+    search rejects as a draw).
+    """
+    wk = board.king(weak)
+    if wk is None:
+        return 8
+    escapes = 0
+    for sq in chess.SquareSet(chess.BB_KING_ATTACKS[wk]):
+        occupant = board.piece_at(sq)
+        if occupant is not None and occupant.color == weak:
+            continue  # blocked by the king's own piece
+        if not board.is_attacked_by(strong, sq):
+            escapes += 1
+    return escapes
+
+
+def _mopup_progress(board: chess.Board, strong: chess.Color) -> float:
+    """How close ``strong`` is to mating the lone(ish) enemy king, in [0, 1].
+
+    Delivering mate means herding the losing king to an edge/corner, bringing your
+    own king up to support, and squeezing its escape squares to zero. This returns
+    a smooth 0..1 signal combining all three; critically the escape-square term
+    gives a gradient *even once the king is already cornered*, so the search keeps
+    tightening the net toward checkmate instead of shuffling into a repetition.
+    """
+    weak_king = board.king(not strong)
+    strong_king = board.king(strong)
+    if weak_king is None or strong_king is None:
+        return 0.0
+    wf, wr = chess.square_file(weak_king), chess.square_rank(weak_king)
+    to_edge = (max(3 - wf, wf - 4) + max(3 - wr, wr - 4)) / 6.0   # 0 centre .. 1 corner
+    kings_close = (7 - chess.square_distance(strong_king, weak_king)) / 6.0  # 0 far .. 1 near
+    boxed_in = (8 - _king_escape_squares(board, not strong, strong)) / 8.0    # 0 free .. 1 trapped
+    return 0.30 * to_edge + 0.25 * kings_close + 0.45 * boxed_in
+
+
+def heuristic_score(board: chess.Board) -> float:
+    """Play-time leaf evaluation in [-1, 1], from the side-to-move's perspective.
+
+    * In normal positions it is the ``tanh``-squashed **material** balance, so the
+      search wins material and captures hanging pieces.
+    * Once a side is *clearly* winning (>= a rook up), plain material saturates and
+      stops distinguishing moves -- the engine grabs everything then shuffles to a
+      draw. So we switch to a **conversion gradient**: a high base value plus a
+      reward for *mating progress* (driving the losing king to a corner, kings
+      close). This gives the shallow search a clear path to follow toward
+      checkmate (which the search detects as terminal); stalemate stays a draw
+      (value 0), far below this, so the search avoids it.
+    """
+    raw = _raw_material(board)
+    if abs(raw) >= 5.0:  # a rook or more up: switch to "convert to mate" mode
+        sign = 1.0 if raw > 0 else -1.0
+        strong = board.turn if raw > 0 else not board.turn
+        progress = _mopup_progress(board, strong)
+        return sign * (0.80 + 0.19 * progress)  # 0.80 .. 0.99 for the winner
+    return math.tanh(raw / 8.0)
 
 
 # --------------------------------------------------------------------------- #

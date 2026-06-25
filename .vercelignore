@@ -1,0 +1,16 @@
+# Vercel only hosts the STATIC front-end (web/static). Exclude the Python backend
+# and everything else so Vercel does not try to build it as a serverless function
+# (which is what causes the "main.py does not define a top-level app" error).
+# The backend (the alpha-beta API) runs on Render -- see render.yaml / README.
+*.py
+**/*.py
+requirements*.txt
+pyproject.toml
+render.yaml
+checkpoints/
+notebooks/
+tests/
+docs/
+assets/
+logs/
+pgn/

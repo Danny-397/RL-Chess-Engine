@@ -2,21 +2,21 @@
 # Deploy by pointing Render at this repo (New + -> Blueprint), or replicate the
 # build/start commands below in a manual "Web Service".
 #
-# Two things make this work on Render:
-#   1. CPU-only PyTorch -- the default `pip install torch` pulls a multi-GB CUDA
-#      wheel that overflows the build; the cpu index keeps it small.
-#   2. Binding to Render's $PORT on 0.0.0.0 (not the local 127.0.0.1 default).
+# The web demo uses the classical alpha-beta engine (no PyTorch), so the build is
+# tiny and the service runs comfortably on the free instance. It serves both the
+# board page and the API from one URL -- a complete, playable site.
 services:
   - type: web
     name: rl-chess-engine
     runtime: python
-    plan: free  # NOTE: PyTorch is memory-hungry; bump to a larger plan if the
-                # free instance OOMs on model load (see README for details).
-    buildCommand: "pip install --upgrade pip && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt"
+    plan: free
+    buildCommand: "pip install --upgrade pip && pip install -r requirements-web.txt"
     startCommand: "uvicorn web.server:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
     envVars:
-      # Fewer MCTS simulations -> snappier responses on a small CPU instance.
-      - key: RLCHESS_SIMULATIONS
-        value: "60"
+      # Alpha-beta search depth: higher = stronger but slower. 3 is snappy; 4 is
+      # stronger (~a few seconds per move).
+      - key: RLCHESS_DEPTH
+        value: "3"
       - key: PYTHON_VERSION
         value: "3.12.4"
