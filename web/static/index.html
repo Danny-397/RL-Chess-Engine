@@ -282,6 +282,7 @@
             <button class="btn ghost" id="hintBtn">Hint</button>
             <button class="btn ghost" id="undoBtn">Undo</button>
             <button class="btn ghost" id="flipBtn">Flip</button>
+            <button class="btn ghost" id="pgnBtn">Copy PGN</button>
           </div>
           <div class="optrow"><span>Play as</span>
             <select id="side">
@@ -306,7 +307,8 @@
             </select>
           </div>
           <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
-          <p class="muted" style="font-size:12px;margin:10px 0 0;">Tip: right-click + drag to draw an arrow; right-click a square to mark it.</p>
+          <label class="toggle"><input type="checkbox" id="soundOn" checked /> Sound effects</label>
+          <p class="muted" style="font-size:12px;margin:10px 0 0;">Tip: right-click + drag to draw an arrow; right-click a square to mark it. Keys: N new · F flip · U undo · H hint.</p>
         </div>
 
         <div class="pcard" id="clockCard" style="display:none;">
@@ -425,6 +427,45 @@ async function ask(endpoint, topN = 3) {
   } catch (e) { return { error: String(e) }; }
 }
 const DOWN_MSG = 'Could not reach the engine. If it is hosted on a free tier it may be waking up — wait ~30s and try again.';
+
+// ----------------------------- sound effects (Web Audio, no assets) -----------------------------
+let soundOn = true;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; } }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep(freq, dur, type, gain, delay) {
+  if (!soundOn || !audioCtx) return;
+  const t = audioCtx.currentTime + (delay || 0);
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain || 0.12, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur + 0.03);
+}
+function playSound(kind) {
+  if (!soundOn) return;
+  ensureAudio();
+  if (kind === 'move') beep(300, 0.08, 'triangle', 0.12);
+  else if (kind === 'capture') { beep(190, 0.10, 'sawtooth', 0.12); beep(120, 0.12, 'sine', 0.09, 0.02); }
+  else if (kind === 'check') beep(680, 0.13, 'square', 0.10);
+  else if (kind === 'castle') { beep(300, 0.07, 'triangle', 0.12); beep(380, 0.08, 'triangle', 0.12, 0.08); }
+  else if (kind === 'promote') { beep(420, 0.08, 'triangle', 0.12); beep(640, 0.11, 'triangle', 0.12, 0.08); }
+  else if (kind === 'end') { beep(520, 0.14, 'sine', 0.14); beep(390, 0.20, 'sine', 0.12, 0.14); }
+}
+function soundForMove(mv) {
+  if (game.game_over()) return 'end';
+  if (game.in_check()) return 'check';
+  if (mv && mv.flags) {
+    if (mv.flags.includes('p')) return 'promote';
+    if (/[kq]/.test(mv.flags)) return 'castle';
+    if (/[ce]/.test(mv.flags)) return 'capture';
+  }
+  return 'move';
+}
 
 // ----------------------------- board state -----------------------------
 const game = new Chess();
@@ -586,7 +627,8 @@ function doMove(from, to) {
   finalizeMove(from, to, 'q');
 }
 function finalizeMove(from, to, promo) {
-  game.move({ from, to, promotion: promo });
+  const mv = game.move({ from, to, promotion: promo });
+  playSound(soundForMove(mv));
   lastMove = { from, to };
   hintMove = null; clearSelection(); renderBoard(); renderHistory();
   if (game.game_over()) { showBanner(); return; }
@@ -657,6 +699,7 @@ function moveGhost(img, x, y) { const s = parseFloat(img.style.width); img.style
 function squareAtPoint(x, y) { const el = document.elementFromPoint(x, y); const c = el && el.closest && el.closest('.sq'); return c ? c.dataset.sq : null; }
 
 function onPointerDown(e) {
+  ensureAudio();   // unlock/resume audio on first user gesture
   const cell = e.target.closest('.sq'); if (!cell) return;
   const sq = cell.dataset.sq;
 
@@ -720,7 +763,8 @@ async function engineMove() {
   if (data.error) { game.undo(); lastMove = null; renderBoard(); setStatus(DOWN_MSG); return; }
   if (data.game_over) { renderBoard(); showBanner(); return; }
   const m = data.move;
-  game.move({ from: m.uci.slice(0,2), to: m.uci.slice(2,4), promotion: m.uci.length > 4 ? m.uci[4] : undefined });
+  const mvObj = game.move({ from: m.uci.slice(0,2), to: m.uci.slice(2,4), promotion: m.uci.length > 4 ? m.uci[4] : undefined });
+  playSound(soundForMove(mvObj));
   lastMove = { from: m.uci.slice(0,2), to: m.uci.slice(2,4) };
   renderBoard(); renderHistory();
   setEval(data.white_win_probability); setMoves(data.suggestions);
@@ -799,6 +843,7 @@ function renderMaterial() {
 
 // ----------------------------- controls -----------------------------
 function newGame() {
+  ensureAudio();   // a button click is a user gesture -> unlock audio
   const sideSel = document.getElementById('side').value;
   humanColor = sideSel === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideSel;
   orientation = humanColor === 'w' ? 'white' : 'black';
@@ -840,6 +885,27 @@ document.getElementById('hintBtn').onclick = async () => {
     setStatus('Engine recommends: ' + (best ? best.san : '—'));
   }
 };
+document.getElementById('soundOn').onchange = e => { soundOn = e.target.checked; if (soundOn) ensureAudio(); };
+document.getElementById('pgnBtn').onclick = async () => {
+  const pgn = game.pgn();
+  if (!pgn) { setStatus('No moves to copy yet.'); return; }
+  try { await navigator.clipboard.writeText(pgn); setStatus('PGN copied to clipboard.'); }
+  catch (err) { setStatus('Copy failed — your browser blocked clipboard access.'); }
+};
+
+// Keyboard shortcuts (only on the Play tab, and not while typing in a control).
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('play').classList.contains('active')) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+  const k = e.key.toLowerCase();
+  if (k === 'n') newGame();
+  else if (k === 'f') { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); }
+  else if (k === 'u') undo();
+  else if (k === 'h') document.getElementById('hintBtn').click();
+  else return;
+  e.preventDefault();
+});
 
 // ----------------------------- init -----------------------------
 renderBoard();
