@@ -1,13 +1,13 @@
 # RL-Chess-Engine
 
-[![▶ Play Live](https://img.shields.io/badge/%E2%96%B6%20Play-Live-2ea44f?style=for-the-badge)](https://rl-chess-engine.vercel.app/)
+[![▶ Play Live](https://img.shields.io/badge/%E2%96%B6%20Play-rlchess.xyz-2ea44f?style=for-the-badge)](https://rlchess.xyz/)
 
+[![Vercel](https://img.shields.io/badge/Vercel-Live-000000?logo=vercel&logoColor=white)](https://rlchess.xyz/)
 [![Render](https://img.shields.io/badge/Render-Live-46E3B7?logo=render&logoColor=white)](https://rl-chess-engine.onrender.com/)
-[![Vercel](https://img.shields.io/badge/Vercel-Live-000000?logo=vercel&logoColor=white)](https://rl-chess-engine.vercel.app/)
 [![tests](https://github.com/Danny-397/RL-Chess-Engine/actions/workflows/tests.yml/badge.svg)](https://github.com/Danny-397/RL-Chess-Engine/actions/workflows/tests.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**▶ Play it live:** **[rl-chess-engine.vercel.app](https://rl-chess-engine.vercel.app/)** &nbsp;·&nbsp; mirror: [onrender.com](https://rl-chess-engine.onrender.com/)
+**▶ Play it live: [rlchess.xyz](https://rlchess.xyz/)** &nbsp;·&nbsp; mirror: [onrender.com](https://rl-chess-engine.onrender.com/)
 
 A clean, fully-documented implementation of an **AlphaZero-style reinforcement
 learning chess engine**, written from scratch in **Python + PyTorch**.

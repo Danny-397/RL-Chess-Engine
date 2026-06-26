@@ -9,6 +9,7 @@
 <meta property="og:title" content="RL-Chess-Engine — a chess engine that teaches itself" />
 <meta property="og:description" content="Play an AlphaZero-style RL chess engine on a hand-made wooden board." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://rlchess.xyz/" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='20'%20fill='%23d4a24c'/%3E%3Ctext%20x='50'%20y='52'%20font-size='72'%20text-anchor='middle'%20dominant-baseline='central'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -255,8 +256,8 @@
         learns purely by playing itself. This site showcases that project: <em>read how it learns, watch
         it self-play, and play a game yourself.</em></p>
       <div class="cta">
-        <button class="btn primary" data-goto="learn">See how it learns</button>
-        <button class="btn ghost" data-goto="play">♟ Play a game</button>
+        <button class="btn primary" data-goto="play">Play a game</button>
+        <button class="btn ghost" data-goto="learn">See how it learns</button>
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">View source</a>
       </div>
       <p class="muted" style="max-width:660px; margin:18px auto 0; font-size:13.5px;">
@@ -266,16 +267,16 @@
     </div>
 
     <div class="features">
-      <div class="card"><div class="ico">🧠</div><h3>Neural network</h3>
+      <div class="card"><h3>Neural network</h3>
         <p>A residual CNN reads the board and outputs a move <em>policy</em> and a <em>value</em>
            (who's winning) — no hand-written chess knowledge.</p></div>
-      <div class="card"><div class="ico">🌳</div><h3>Search (MCTS)</h3>
+      <div class="card"><h3>Search (MCTS)</h3>
         <p>Monte-Carlo Tree Search with the PUCT rule looks ahead, turning the network's hunches
            into much stronger moves.</p></div>
-      <div class="card"><div class="ico">♻️</div><h3>Self-play learning</h3>
+      <div class="card"><h3>Self-play learning</h3>
         <p>The engine is its own opponent and its own teacher: games become training data, which
            sharpens the next generation.</p></div>
-      <div class="card"><div class="ico">🪵</div><h3>Play it now</h3>
+      <div class="card"><h3>Play it now</h3>
         <p>The live board uses a fast classical search so it plays sound chess today — captures,
            tactics and real checkmates.</p></div>
     </div>
@@ -283,18 +284,18 @@
     <h2 class="section-title" style="margin-top:48px;">How this is different from other chess engines</h2>
     <p class="muted" style="max-width:720px;">Most chess engines are pre-built black boxes. This one is about <em>understanding</em> how an engine learns and thinks.</p>
     <div class="features">
-      <div class="card"><div class="ico">🧠</div><h3>It learns, it isn't told</h3>
+      <div class="card"><h3>It learns, it isn't told</h3>
         <p>Engines like Stockfish run on decades of human-tuned chess knowledge. This one starts from
            <em>random</em> and teaches <em>itself</em> — the AlphaZero idea — discovering good play from
            its own games.</p></div>
-      <div class="card"><div class="ico">🔍</div><h3>It shows its thinking</h3>
+      <div class="card"><h3>It shows its thinking</h3>
         <p>See the live evaluation, win probability and the moves it's considering, drawn as arrows on
            the board. Most engines never let you see <em>why</em>.</p></div>
-      <div class="card"><div class="ico">📖</div><h3>Built from scratch to be understood</h3>
+      <div class="card"><h3>Built from scratch to be understood</h3>
         <p>The network, the search and the self-play loop are all written from scratch and explained in
            plain English on the <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>
            page. It's a learning tool, not just a player.</p></div>
-      <div class="card"><div class="ico">👀</div><h3>Watch it play itself</h3>
+      <div class="card"><h3>Watch it play itself</h3>
         <p>Hit <strong>“Watch self-play”</strong> and the engine reasons through a whole game on its own —
            exactly the kind of self-play it learns from.</p></div>
     </div>
@@ -326,8 +327,8 @@
             <button class="btn ghost" id="undoBtn">Undo</button>
             <button class="btn ghost" id="flipBtn">Flip</button>
             <button class="btn ghost" id="pgnBtn">Copy PGN</button>
-            <button class="btn ghost" id="watchBtn">▶ Watch self-play</button>
-            <button class="btn ghost" id="soundBtn">🔊 Sound</button>
+            <button class="btn ghost" id="watchBtn">Watch self-play</button>
+            <button class="btn ghost" id="soundBtn">Sound: on</button>
           </div>
           <div class="optrow"><span>Play as</span>
             <select id="side">
@@ -699,7 +700,7 @@ function gameOverInfo() {
   if (game.in_checkmate()) {
     const humanWon = game.turn() !== humanColor;   // side to move is the one mated
     kind = humanWon ? 'win' : 'loss';
-    text = (humanWon ? '🎉 You win — ' : 'You lose — ') + (game.turn() === 'w' ? 'Black' : 'White') + ' is checkmated.';
+    text = (humanWon ? 'You win — ' : 'You lose — ') + (game.turn() === 'w' ? 'Black' : 'White') + ' is checkmated.';
   } else if (game.in_stalemate()) text = 'Draw by stalemate.';
   else if (game.in_threefold_repetition()) text = 'Draw by repetition.';
   else if (game.insufficient_material()) text = 'Draw — insufficient material.';
@@ -921,7 +922,7 @@ function flag() {
   const humanLost = (whiteMs <= 0 && humanColor === 'w') || (blackMs <= 0 && humanColor === 'b');
   const el = document.getElementById('banner');
   el.className = 'banner show ' + (humanLost ? 'loss' : 'win');
-  document.getElementById('bannerText').textContent = humanLost ? '⏱ You lost on time.' : '⏱ You win — the engine flagged!';
+  document.getElementById('bannerText').textContent = humanLost ? 'You lost on time.' : 'You win — the engine flagged!';
   setStatus('Game over — flag fell.'); updateClocks();
 }
 
@@ -1000,14 +1001,14 @@ document.getElementById('hintBtn').onclick = async () => {
 };
 document.getElementById('soundBtn').onclick = () => {
   soundOn = !soundOn;
-  document.getElementById('soundBtn').textContent = soundOn ? '🔊 Sound' : '🔇 Muted';
+  document.getElementById('soundBtn').textContent = soundOn ? 'Sound: on' : 'Sound: off';
   if (soundOn) { ensureAudio(); playSound('move'); }
 };
 
 // ----------------------------- watch self-play (engine vs engine) -----------------------------
 function stopSelfPlay() {
   selfplay = false; hideSpinner();
-  document.getElementById('watchBtn').textContent = '▶ Watch self-play';
+  document.getElementById('watchBtn').textContent = 'Watch self-play';
 }
 async function runSelfPlay() {
   // Spectator mode: the classical engine plays both sides until the game ends.
@@ -1017,7 +1018,7 @@ async function runSelfPlay() {
   }
   stopClock();                          // the clock is irrelevant while spectating
   selfplay = true;
-  document.getElementById('watchBtn').textContent = '⏹ Stop';
+  document.getElementById('watchBtn').textContent = 'Stop';
   let plies = 0;
   while (selfplay && !game.game_over() && plies < 300) {
     setStatus(`Self-play: ${game.turn() === 'w' ? 'White' : 'Black'} to move…`);
