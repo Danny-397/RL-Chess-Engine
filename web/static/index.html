@@ -15,6 +15,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 
 <style>
   :root {
@@ -340,6 +341,12 @@
               <option value="2">Easy</option>
               <option value="3" selected>Normal</option>
               <option value="4">Hard</option>
+            </select>
+          </div>
+          <div class="optrow"><span>Opponent</span>
+            <select id="opponent">
+              <option value="classical" selected>Classical (strong)</option>
+              <option value="rl" id="rlOption" disabled>AlphaZero net (loading…)</option>
             </select>
           </div>
           <div class="optrow"><span>Time</span>
@@ -862,7 +869,7 @@ document.addEventListener('pointerup', onPointerUp);
 
 async function engineMove() {
   thinking = true; showSpinner();
-  const data = await ask('engine_move', 3);
+  const data = await getEngineData();
   thinking = false; hideSpinner();
   if (data.error) { game.undo(); lastMove = null; renderBoard(); setStatus(DOWN_MSG); return; }
   if (data.game_over) { renderBoard(); showBanner(); return; }
@@ -1015,7 +1022,7 @@ async function runSelfPlay() {
   while (selfplay && !game.game_over() && plies < 300) {
     setStatus(`Self-play: ${game.turn() === 'w' ? 'White' : 'Black'} to move…`);
     showSpinner();
-    const data = await ask('engine_move', 3);
+    const data = await getEngineData();
     hideSpinner();
     if (!selfplay) return;              // user pressed Stop mid-search
     if (data.error) { setStatus(DOWN_MSG); break; }
@@ -1058,9 +1065,127 @@ document.addEventListener('keydown', e => {
   e.preventDefault();
 });
 
+// ----------------------------- the RL network (in-browser via ONNX) -----------------------------
+// Runs the trained AlphaZero value network *client-side* with onnxruntime-web.
+// Move choice is a 1-ply value search: for each legal move, ask the network how
+// good the resulting position is, and pick the best. No backend / PyTorch needed.
+let opponent = 'classical';
+let rlSession = null, rlReady = false;
+const _PIDX = { p: 0, n: 1, b: 2, r: 3, q: 4, k: 5 };
+
+// Encode a FEN into the canonical (18,8,8) tensor — must match Python encode_board.
+function encodeBoardFromFen(fen) {
+  const out = new Float32Array(18 * 64);
+  const [board, turn, castling, ep, halfStr] = fen.split(' ');
+  const whiteToMove = turn === 'w';
+  const ranks = board.split('/');                 // ranks[0] = rank 8 ... ranks[7] = rank 1
+  for (let ri = 0; ri < 8; ri++) {
+    const realRank = 7 - ri;                       // 0 = rank1 .. 7 = rank8
+    let f = 0;
+    for (const ch of ranks[ri]) {
+      if (ch >= '1' && ch <= '8') { f += ch.charCodeAt(0) - 48; continue; }
+      const isWhite = ch === ch.toUpperCase();
+      const pidx = _PIDX[ch.toLowerCase()];
+      let plane, rr;
+      if (whiteToMove) { plane = isWhite ? pidx : pidx + 6; rr = realRank; }
+      else { plane = (!isWhite) ? pidx : pidx + 6; rr = 7 - realRank; }   // mirror: swap colour + flip rank
+      out[plane * 64 + rr * 8 + f] = 1.0;
+      f += 1;
+    }
+  }
+  const wK = castling.includes('K'), wQ = castling.includes('Q'), bK = castling.includes('k'), bQ = castling.includes('q');
+  const setPlane = (p, on) => { if (on) { const o = p * 64; for (let k = 0; k < 64; k++) out[o + k] = 1.0; } };
+  setPlane(12, whiteToMove ? wK : bK); setPlane(13, whiteToMove ? wQ : bQ);
+  setPlane(14, whiteToMove ? bK : wK); setPlane(15, whiteToMove ? bQ : wQ);
+  if (ep && ep !== '-') {
+    const ef = ep.charCodeAt(0) - 97, er = ep.charCodeAt(1) - 49;
+    out[16 * 64 + (whiteToMove ? er : 7 - er) * 8 + ef] = 1.0;
+  }
+  const hv = Math.min(parseInt(halfStr || '0', 10), 100) / 100;
+  for (let k = 0; k < 64; k++) out[17 * 64 + k] = hv;
+  return out;
+}
+
+async function netValueBatch(fens) {            // -> Float32 values (side-to-move perspective)
+  const N = fens.length, data = new Float32Array(N * 18 * 64);
+  for (let i = 0; i < N; i++) data.set(encodeBoardFromFen(fens[i]), i * 18 * 64);
+  const out = await rlSession.run({ board: new ort.Tensor('float32', data, [N, 18, 8, 8]) });
+  return out.value.data;
+}
+
+async function loadRL() {
+  try {
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
+    rlSession = await ort.InferenceSession.create('static/model.onnx');
+    // Golden self-check: confirm the JS encoding matches Python (incl. the mirror path).
+    const checks = [
+      { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', v: 0.030050, sum: 288 },
+      { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1', v: 0.071738, sum: 289 },
+    ];
+    for (const c of checks) {
+      const enc = encodeBoardFromFen(c.fen);
+      let s = 0; for (const x of enc) s += x;
+      if (Math.abs(s - c.sum) > 0.5) throw new Error(`encoding sum ${s} != ${c.sum}`);
+      const o = await rlSession.run({ board: new ort.Tensor('float32', enc, [1, 18, 8, 8]) });
+      if (Math.abs(o.value.data[0] - c.v) > 0.02) throw new Error(`value ${o.value.data[0]} != ${c.v}`);
+    }
+    rlReady = true;
+    const opt = document.getElementById('rlOption');
+    opt.disabled = false; opt.textContent = 'AlphaZero net (learning)';
+    console.log('AlphaZero net: loaded, self-check passed.');
+  } catch (e) {
+    rlReady = false;
+    console.warn('AlphaZero net unavailable (' + e.message + ') — using classical engine.');
+    if (opponent === 'rl') { opponent = 'classical'; document.getElementById('opponent').value = 'classical'; }
+  }
+}
+
+// Pick the engine's move with the RL network (1-ply value search), returned in
+// the same shape as the backend /engine_move response.
+async function rlMove() {
+  const moves = game.moves({ verbose: true });
+  const fens = [], term = [];
+  for (const m of moves) {
+    game.move({ from: m.from, to: m.to, promotion: m.promotion });
+    if (game.game_over()) { term.push(game.in_checkmate() ? 1 : 0); fens.push(null); }
+    else { term.push(null); fens.push(game.fen()); }
+    game.undo();
+  }
+  const realFens = fens.filter(f => f !== null);
+  const vals = realFens.length ? await netValueBatch(realFens) : [];
+  let vi = 0;
+  const scored = moves.map((m, i) => {
+    let ourVal;
+    if (term[i] !== null) ourVal = term[i] === 1 ? 1.0 : 0.0;   // mate = win, draw = 0
+    else ourVal = -vals[vi++];                                  // negate opponent's value
+    return { m, ourVal: Math.max(-1, Math.min(1, ourVal)) };
+  });
+  scored.sort((a, b) => b.ourVal - a.ourVal);
+  const best = scored[0], usWp = (best.ourVal + 1) / 2;
+  const engineWhite = game.turn() === 'w';
+  return {
+    game_over: false,
+    move: { uci: best.m.from + best.m.to + (best.m.promotion || ''), san: best.m.san, win_probability: usWp },
+    white_win_probability: engineWhite ? usWp : 1 - usWp,
+    suggestions: scored.slice(0, 3).map(s => ({ san: s.m.san, value: s.ourVal, win_probability: (s.ourVal + 1) / 2 })),
+  };
+}
+
+// One entry point the play loop and self-play both use.
+async function getEngineData() {
+  if (opponent === 'rl' && rlReady) { try { return await rlMove(); } catch (e) { return { error: String(e) }; } }
+  return ask('engine_move', 3);
+}
+
+document.getElementById('opponent').onchange = e => {
+  if (e.target.value === 'rl' && !rlReady) { e.target.value = 'classical'; return; }
+  opponent = e.target.value;
+};
+
 // ----------------------------- init -----------------------------
 renderBoard();
 renderHistory();
+loadRL();
 </script>
 </body>
 </html>

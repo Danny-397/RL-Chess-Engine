@@ -140,6 +140,18 @@ position as FEN).
 > searcher's strength with `--depth` (CLI) or `RLCHESS_DEPTH` (server); 3 is snappy,
 > 4 is stronger.
 
+> **Play the actual neural network (in your browser):** the web UI has an
+> **Opponent** toggle — *Classical* or *AlphaZero net*. The latter runs the trained
+> network **client-side via [onnxruntime-web]**, with no PyTorch backend: it loads
+> `web/static/model.onnx` and chooses moves by a 1-ply value search. To enable it,
+> export the model with the last cell of the Colab notebook (or `export_onnx.py` on a
+> machine where `onnx` installs), drop `model.onnx` into `web/static/`, and redeploy.
+> A built-in self-check verifies the JS board-encoding matches Python before use;
+> if the file or check is missing it silently falls back to the classical engine.
+> (It plays *loosely* — it's the still-learning network.)
+
+[onnxruntime-web]: https://onnxruntime.ai/docs/tutorials/web/
+
 #### Deploy the web UI to Render (one lightweight service)
 
 Because the demo engine is torch-free, the whole site — board **and** API — runs
