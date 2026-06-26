@@ -247,15 +247,21 @@
   <!-- ===================== HOME ===================== -->
   <section id="home" class="view active">
     <div class="hero">
+      <p style="color:var(--gold); font-weight:700; letter-spacing:.12em; text-transform:uppercase; font-size:13px; margin:0 0 10px;">A reinforcement-learning project</p>
       <h1 class="serif">A chess engine that <span class="accent">teaches itself</span></h1>
-      <p class="lead">An AlphaZero-style reinforcement-learning chess engine, built from scratch in
-        Python &amp; PyTorch — a deep neural network guided by Monte-Carlo Tree Search, trained by
-        playing millions of moves against itself. Play it right now on a hand-made wooden board.</p>
+      <p class="lead">An <strong>AlphaZero-style reinforcement-learning</strong> system, built from scratch
+        in Python &amp; PyTorch — a neural network (policy + value) guided by Monte-Carlo Tree Search that
+        learns purely by playing itself. This site showcases that project: <em>read how it learns, watch
+        it self-play, and play a game yourself.</em></p>
       <div class="cta">
-        <button class="btn primary" data-goto="play">♟ Play the engine</button>
-        <button class="btn ghost" data-goto="learn">How it works</button>
+        <button class="btn primary" data-goto="learn">See how it learns</button>
+        <button class="btn ghost" data-goto="play">♟ Play a game</button>
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">View source</a>
       </div>
+      <p class="muted" style="max-width:660px; margin:18px auto 0; font-size:13.5px;">
+        Heads-up: so a game is enjoyable today, the live board's opponent is a fast <strong>classical</strong>
+        engine. The <strong>reinforcement-learning network</strong> is the from-scratch learning project —
+        see <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
     </div>
 
     <div class="features">
