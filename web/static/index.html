@@ -1119,8 +1119,8 @@ async function loadRL() {
     rlSession = await ort.InferenceSession.create('static/model.onnx');
     // Golden self-check: confirm the JS encoding matches Python (incl. the mirror path).
     const checks = [
-      { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', v: 0.030050, sum: 288 },
-      { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1', v: 0.071738, sum: 289 },
+      { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', v: -0.014744, sum: 288 },
+      { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1', v: -0.036084, sum: 289 },
     ];
     for (const c of checks) {
       const enc = encodeBoardFromFen(c.fen);

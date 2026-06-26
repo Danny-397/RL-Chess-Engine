@@ -317,7 +317,7 @@ Below is a real **GPU (Colab)** training run — 12 iterations, ~96 self-play ga
 
 ![training progress](assets/training_progress.png)
 
-The **policy loss drops sharply** (4.6 → ~0.88): the network rapidly learns to imitate
+The **policy loss drops sharply** (4.6 → ~1.0): the network rapidly learns to imitate
 its own search — clear evidence the RL machinery works. But, being honest about what
 the numbers show:
 
