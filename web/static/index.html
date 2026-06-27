@@ -328,7 +328,6 @@
             <button class="btn ghost" id="flipBtn">Flip</button>
             <button class="btn ghost" id="pgnBtn">Copy PGN</button>
             <button class="btn ghost" id="watchBtn">Watch self-play</button>
-            <button class="btn ghost" id="soundBtn">Sound: on</button>
           </div>
           <div class="optrow"><span>Play as</span>
             <select id="side">
@@ -348,6 +347,7 @@
             <select id="opponent">
               <option value="classical" selected>Classical (strong)</option>
               <option value="rl" id="rlOption" disabled>AlphaZero net (loading…)</option>
+              <option value="couch">Couch play (2 players)</option>
             </select>
           </div>
           <div class="optrow"><span>Time</span>
@@ -359,6 +359,9 @@
             </select>
           </div>
           <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
+          <label class="toggle"><input type="checkbox" id="soundToggle" checked /> Sound effects</label>
+          <label class="toggle" id="autoFlipRow" style="display:none;"><input type="checkbox" id="autoFlip" checked /> Flip board after each move</label>
+          <p class="muted" id="couchTip" style="display:none;font-size:12px;margin:10px 0 0;color:var(--gold);">Couch play: two people share this board, taking turns as White and Black.</p>
           <p class="muted" style="font-size:12px;margin:10px 0 0;">Tip: right-click + drag to draw an arrow; right-click a square to mark it. Keys: N new · F flip · U undo · H hint.</p>
         </div>
 
@@ -599,6 +602,14 @@ let whiteMs = 0, blackMs = 0;
 let clockTimer = null, lastTick = 0, timedOut = false;
 let selfplay = false;        // "watch the engine play itself" mode
 
+// In couch (pass-and-play) mode both colours are controlled by humans, so any
+// side to move is "human" and there is no engine reply.
+function couchPlay() { return document.getElementById('opponent').value === 'couch'; }
+function humanTurn() { return couchPlay() || game.turn() === humanColor; }
+function bottomColor() { return orientation === 'white' ? 'w' : 'b'; }   // colour shown at the bottom
+function refColor() { return couchPlay() ? bottomColor() : humanColor; } // the "near" player for clocks/material
+function autoFlipOn() { return couchPlay() && document.getElementById('autoFlip').checked; }
+
 function pieceImg(color, type) {
   const shade = color === 'w' ? 'l' : 'd';
   const primary = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${color}${type}.png`;
@@ -698,9 +709,14 @@ function setMoves(suggestions) {
 function gameOverInfo() {
   let kind = 'draw', text = 'Draw.';
   if (game.in_checkmate()) {
-    const humanWon = game.turn() !== humanColor;   // side to move is the one mated
-    kind = humanWon ? 'win' : 'loss';
-    text = (humanWon ? 'You win — ' : 'You lose — ') + (game.turn() === 'w' ? 'Black' : 'White') + ' is checkmated.';
+    if (couchPlay()) {
+      kind = 'win';
+      text = (game.turn() === 'w' ? 'White' : 'Black') + ' is checkmated — ' + (game.turn() === 'w' ? 'Black' : 'White') + ' wins.';
+    } else {
+      const humanWon = game.turn() !== humanColor;   // side to move is the one mated
+      kind = humanWon ? 'win' : 'loss';
+      text = (humanWon ? 'You win — ' : 'You lose — ') + (game.turn() === 'w' ? 'Black' : 'White') + ' is checkmated.';
+    }
   } else if (game.in_stalemate()) text = 'Draw by stalemate.';
   else if (game.in_threefold_repetition()) text = 'Draw by repetition.';
   else if (game.insufficient_material()) text = 'Draw — insufficient material.';
@@ -721,7 +737,7 @@ function clearSelection() { selected = null; selected_moves = []; legalTargets =
 
 function selectSquare(sq) {
   const piece = game.get(sq);
-  if (!piece || piece.color !== game.turn() || game.turn() !== humanColor) { clearSelection(); renderBoard(); return; }
+  if (!piece || piece.color !== game.turn() || !humanTurn()) { clearSelection(); renderBoard(); return; }
   selected = sq;
   const show = document.getElementById('showMoves').checked;
   const verbose = game.moves({ square: sq, verbose: true });
@@ -742,8 +758,15 @@ function finalizeMove(from, to, promo) {
   const mv = game.move({ from, to, promotion: promo });
   playSound(soundForMove(mv));
   lastMove = { from, to };
-  hintMove = null; clearSelection(); renderBoard(); renderHistory();
+  hintMove = null; clearSelection();
+  if (autoFlipOn()) orientation = game.turn() === 'w' ? 'white' : 'black';   // hand the board to the next player
+  renderBoard(); renderHistory();
   if (game.game_over()) { showBanner(); return; }
+  if (couchPlay()) {                                   // two humans: no engine reply
+    setStatus(`${game.turn() === 'w' ? 'White' : 'Black'} to move.`);
+    yourTurnCue();
+    return;
+  }
   thinking = true; showSpinner(); setStatus('Engine is thinking…');
   setTimeout(engineMove, 120);
 }
@@ -784,12 +807,19 @@ function renderHistory() {
 // ----- takeback -----
 function undo() {
   if (thinking || pendingPromo || timedOut || selfplay) return;
-  if (game.turn() !== humanColor || game.history().length < 2) return;
-  game.undo(); game.undo();                       // undo engine reply + your move
+  if (couchPlay()) {
+    if (!game.history().length) return;
+    game.undo();                                  // couch play: take back the single last move
+    if (autoFlipOn()) orientation = game.turn() === 'w' ? 'white' : 'black';
+  } else {
+    if (game.turn() !== humanColor || game.history().length < 2) return;
+    game.undo(); game.undo();                     // undo engine reply + your move
+  }
   const hist = game.history({ verbose: true });
   lastMove = hist.length ? { from: hist[hist.length - 1].from, to: hist[hist.length - 1].to } : null;
   hintMove = null; clearSelection(); hideBanner();
-  renderBoard(); renderHistory(); setStatus('Took back your last move. Your move.');
+  renderBoard(); renderHistory();
+  setStatus(couchPlay() ? `Move taken back. ${game.turn() === 'w' ? 'White' : 'Black'} to move.` : 'Took back your last move. Your move.');
 }
 
 // A unified pointer handler gives us click-to-move AND drag-to-move.
@@ -825,7 +855,7 @@ function onPointerDown(e) {
   hintMove = null;                                   // any interaction clears the hint
   if (selected && selected_moves.includes(sq)) { doMove(selected, sq); return; }  // click-to-move
   const piece = game.get(sq);
-  if (piece && piece.color === game.turn() && game.turn() === humanColor) {
+  if (piece && piece.color === game.turn() && humanTurn()) {
     selectSquare(sq);
     drag = { from: sq, ghost: makeGhost(sq, e.clientX, e.clientY), moved: false };
     const pieceImgEl = cell.querySelector('.piece'); if (pieceImgEl) pieceImgEl.style.visibility = 'hidden';
@@ -892,12 +922,17 @@ function fmtTime(ms) {
   return m + ':' + String(s % 60).padStart(2, '0');
 }
 function updateClocks() {
-  const oppMs = humanColor === 'w' ? blackMs : whiteMs;
-  const myMs = humanColor === 'w' ? whiteMs : blackMs;
+  const ref = refColor();
+  const oppMs = ref === 'w' ? blackMs : whiteMs;
+  const myMs = ref === 'w' ? whiteMs : blackMs;
   const top = document.getElementById('clockTop'), bot = document.getElementById('clockBot');
+  if (couchPlay()) {                                  // labels track the board as it flips
+    document.getElementById('whoBot').textContent = ref === 'w' ? 'White' : 'Black';
+    document.getElementById('whoTop').textContent = ref === 'w' ? 'Black' : 'White';
+  }
   document.getElementById('timeTop').textContent = timeControl ? fmtTime(oppMs) : '∞';
   document.getElementById('timeBot').textContent = timeControl ? fmtTime(myMs) : '∞';
-  const myTurn = game.turn() === humanColor, live = timeControl && !game.game_over() && !timedOut;
+  const myTurn = game.turn() === ref, live = timeControl && !game.game_over() && !timedOut;
   bot.classList.toggle('active', live && myTurn);
   top.classList.toggle('active', live && !myTurn);
   bot.classList.toggle('low', timeControl && myMs <= 10000);
@@ -919,10 +954,16 @@ function startClock() {
 function flag() {
   timedOut = true; stopClock();
   whiteMs = Math.max(0, whiteMs); blackMs = Math.max(0, blackMs);
-  const humanLost = (whiteMs <= 0 && humanColor === 'w') || (blackMs <= 0 && humanColor === 'b');
   const el = document.getElementById('banner');
-  el.className = 'banner show ' + (humanLost ? 'loss' : 'win');
-  document.getElementById('bannerText').textContent = humanLost ? 'You lost on time.' : 'You win — the engine flagged!';
+  if (couchPlay()) {
+    const loser = whiteMs <= 0 ? 'White' : 'Black', winner = whiteMs <= 0 ? 'Black' : 'White';
+    el.className = 'banner show win';
+    document.getElementById('bannerText').textContent = `${loser} flagged — ${winner} wins on time.`;
+  } else {
+    const humanLost = (whiteMs <= 0 && humanColor === 'w') || (blackMs <= 0 && humanColor === 'b');
+    el.className = 'banner show ' + (humanLost ? 'loss' : 'win');
+    document.getElementById('bannerText').textContent = humanLost ? 'You lost on time.' : 'You win — the engine flagged!';
+  }
   setStatus('Game over — flag fell.'); updateClocks();
 }
 
@@ -946,10 +987,17 @@ function renderMaterial() {
     for (let i = 0; i < b; i++) capByBlack += pieceMini('w', t);
     diff += _PVAL[t] * ((cnt.w[t] || 0) - (cnt.b[t] || 0));
   }
-  const youWhite = humanColor === 'w';
+  const youWhite = refColor() === 'w';
   const youCap = youWhite ? capByWhite : capByBlack;
   const oppCap = youWhite ? capByBlack : capByWhite;
   const youDiff = youWhite ? diff : -diff;
+  if (couchPlay()) {                                   // label by colour, not "you/engine"
+    document.getElementById('capYouLbl').textContent = (youWhite ? 'White' : 'Black') + ' captured';
+    document.getElementById('capOppLbl').textContent = (youWhite ? 'Black' : 'White') + ' captured';
+  } else {
+    document.getElementById('capYouLbl').textContent = 'You captured';
+    document.getElementById('capOppLbl').textContent = 'Engine captured';
+  }
   document.getElementById('capYou').innerHTML = youCap + (youDiff > 0 ? `<span class="adv">+${youDiff}</span>` : '');
   document.getElementById('capOpp').innerHTML = oppCap + (youDiff < 0 ? `<span class="adv">+${-youDiff}</span>` : '');
 }
@@ -958,22 +1006,32 @@ function renderMaterial() {
 function newGame() {
   ensureAudio();   // a button click is a user gesture -> unlock audio
   stopSelfPlay();  // leave spectator mode if it was running
+  const couch = couchPlay();
   const sideSel = document.getElementById('side').value;
   humanColor = sideSel === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideSel;
-  orientation = humanColor === 'w' ? 'white' : 'black';
+  orientation = (couch || humanColor === 'w') ? 'white' : 'black';   // couch play starts White-at-bottom
   game.reset(); clearSelection(); clearAnnotations(); lastMove = null; hintMove = null; thinking = false; pendingPromo = null;
   document.getElementById('promo').classList.remove('show');
   // clock setup
   timeControl = parseInt(document.getElementById('timeCtl').value, 10) || 0;
   whiteMs = blackMs = timeControl * 60000; timedOut = false;
   document.getElementById('clockCard').style.display = timeControl ? 'block' : 'none';
-  document.getElementById('whoTop').textContent = 'Engine (' + (humanColor === 'w' ? 'Black' : 'White') + ')';
-  document.getElementById('whoBot').textContent = 'You (' + (humanColor === 'w' ? 'White' : 'Black') + ')';
+  if (couch) {
+    document.getElementById('whoTop').textContent = 'Black';
+    document.getElementById('whoBot').textContent = 'White';
+  } else {
+    document.getElementById('whoTop').textContent = 'Engine (' + (humanColor === 'w' ? 'Black' : 'White') + ')';
+    document.getElementById('whoBot').textContent = 'You (' + (humanColor === 'w' ? 'White' : 'Black') + ')';
+  }
   hideBanner(); setEval(0.5); document.getElementById('moves').innerHTML = '<li><span class="meta">Press “Hint”.</span></li>';
   renderBoard(); renderHistory(); startClock();
-  setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — click or drag a piece to move it.`);
-  if (game.turn() !== humanColor) {                 // engine opens (you chose Black)
-    thinking = true; showSpinner(); setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
+  if (couch) {
+    setStatus('Couch play — White to move. Take turns on this board.');
+  } else {
+    setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — click or drag a piece to move it.`);
+    if (game.turn() !== humanColor) {              // engine opens (you chose Black)
+      thinking = true; showSpinner(); setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
+    }
   }
 }
 document.getElementById('newBtn').onclick = newGame;
@@ -984,6 +1042,9 @@ document.getElementById('difficulty').onchange = e => { difficulty = parseInt(e.
 document.getElementById('timeCtl').onchange = newGame;          // changing time control restarts
 document.getElementById('flipBtn').onclick = () => { orientation = orientation === 'white' ? 'black' : 'white'; renderBoard(); };
 document.getElementById('showMoves').onchange = () => { if (selected) selectSquare(selected); };
+document.getElementById('autoFlip').onchange = () => {                  // re-orient to the player on move
+  if (autoFlipOn()) { orientation = game.turn() === 'w' ? 'white' : 'black'; renderBoard(); }
+};
 document.getElementById('hintBtn').onclick = async () => {
   if (game.game_over() || thinking || timedOut || selfplay) return;
   setStatus('Analysing…');
@@ -999,9 +1060,8 @@ document.getElementById('hintBtn').onclick = async () => {
     setStatus('Engine recommends: ' + (best ? best.san : '—'));
   }
 };
-document.getElementById('soundBtn').onclick = () => {
-  soundOn = !soundOn;
-  document.getElementById('soundBtn').textContent = soundOn ? 'Sound: on' : 'Sound: off';
+document.getElementById('soundToggle').onchange = (e) => {
+  soundOn = e.target.checked;
   if (soundOn) { ensureAudio(); playSound('move'); }
 };
 
@@ -1181,6 +1241,11 @@ async function getEngineData() {
 document.getElementById('opponent').onchange = e => {
   if (e.target.value === 'rl' && !rlReady) { e.target.value = 'classical'; return; }
   opponent = e.target.value;
+  const couch = opponent === 'couch';
+  document.getElementById('autoFlipRow').style.display = couch ? 'flex' : 'none';
+  document.getElementById('couchTip').style.display = couch ? 'block' : 'none';
+  document.getElementById('side').disabled = couch;          // colour choice is irrelevant with two players
+  newGame();                                                 // restart so the mode change takes effect
 };
 
 // ----------------------------- init -----------------------------
