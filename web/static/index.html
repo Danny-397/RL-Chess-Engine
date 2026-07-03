@@ -288,10 +288,12 @@
         <button class="btn ghost" data-goto="learn">See how it learns</button>
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">View source</a>
       </div>
-      <p class="muted" style="max-width:660px; margin:18px auto 0; font-size:13.5px;">
-        Heads-up: so a game is enjoyable today, the live board's opponent is a fast <strong>classical</strong>
-        engine. The <strong>reinforcement-learning network</strong> is the from-scratch learning project —
-        see <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
+      <p class="muted" style="max-width:680px; margin:18px auto 0; font-size:13.5px;">
+        Honest note: the star is the <strong>self-taught RL network</strong>, trained from scratch. You can play
+        it <strong>raw</strong> — but a laptop can't do enough self-play to make it strong, so on its own it's weak.
+        So the default opponent, <strong>“Neural&nbsp;net&nbsp;+&nbsp;search”</strong>, lets the network's evaluation
+        guide a small search so it plays a genuinely solid game. See
+        <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
     </div>
 
     <div class="features">
@@ -394,8 +396,9 @@
           </div>
           <div class="optrow"><span>Opponent</span>
             <select id="opponent">
-              <option value="classical" selected>Classical (strong)</option>
-              <option value="rl" id="rlOption" disabled>AlphaZero net (loading…)</option>
+              <option value="netsearch" id="netsearchOption" selected>Neural net + search</option>
+              <option value="rawnet" id="rawnetOption" disabled>Neural net (raw · loading…)</option>
+              <option value="classical">Classical (strong)</option>
               <option value="couch">Couch play (2 players)</option>
             </select>
           </div>
@@ -1163,7 +1166,7 @@ document.addEventListener('keydown', e => {
 // Runs the trained AlphaZero value network *client-side* with onnxruntime-web.
 // Move choice is a 1-ply value search: for each legal move, ask the network how
 // good the resulting position is, and pick the best. No backend / PyTorch needed.
-let opponent = 'classical';
+let opponent = 'netsearch';
 let rlSession = null, rlReady = false;
 const _PIDX = { p: 0, n: 1, b: 2, r: 3, q: 4, k: 5 };
 
@@ -1235,13 +1238,13 @@ async function loadRL() {
       if (c.value != null && Math.abs(val - c.value) > 0.02) throw new Error(`value ${val} != ${c.value}`);
     }
     rlReady = true;
-    const opt = document.getElementById('rlOption');
-    opt.disabled = false; opt.textContent = 'AlphaZero net + search';
-    console.log('AlphaZero net: loaded, self-check passed.');
+    const raw = document.getElementById('rawnetOption');
+    raw.disabled = false; raw.textContent = 'Neural net (raw · self-taught)';
+    console.log('Self-taught network: loaded, self-check passed.');
   } catch (e) {
     rlReady = false;
-    console.warn('AlphaZero net unavailable (' + e.message + ') — using classical engine.');
-    if (opponent === 'rl') { opponent = 'classical'; document.getElementById('opponent').value = 'classical'; }
+    console.warn('Neural net unavailable (' + e.message + ') — search / classical still work.');
+    if (opponent === 'rawnet') { opponent = 'netsearch'; document.getElementById('opponent').value = 'netsearch'; }
   }
 }
 
@@ -1379,14 +1382,48 @@ async function hybridMove(g, depth) {
   };
 }
 
+// The RAW self-taught network playing on its own — a 1-ply value lookup with no
+// search and no chess knowledge added. This is the genuine reinforcement-learning
+// artifact the site is about; it is honestly weak (a laptop can't do enough
+// self-play to train it), which is exactly what "How it works" explains.
+async function rawNetMove() {
+  const moves = game.moves({ verbose: true });
+  const fens = [], term = [];
+  for (const m of moves) {
+    game.move({ from: m.from, to: m.to, promotion: m.promotion });
+    if (game.game_over()) { term.push(game.in_checkmate() ? 1 : 0); fens.push(null); }
+    else { term.push(null); fens.push(game.fen()); }
+    game.undo();
+  }
+  const realFens = fens.filter(f => f !== null);
+  const vals = realFens.length ? await netValueBatch(realFens) : [];
+  let vi = 0;
+  const scored = moves.map((m, i) => {
+    let ourVal;
+    if (term[i] !== null) ourVal = term[i] === 1 ? 1.0 : 0.0;   // mate = win, draw = 0
+    else ourVal = -vals[vi++];                                  // negate opponent's value
+    return { m, ourVal: Math.max(-1, Math.min(1, ourVal)) };
+  });
+  scored.sort((a, b) => b.ourVal - a.ourVal);
+  const best = scored[0], usWp = (best.ourVal + 1) / 2;
+  const engineWhite = game.turn() === 'w';
+  return {
+    game_over: false,
+    move: { uci: best.m.from + best.m.to + (best.m.promotion || ''), san: best.m.san, win_probability: usWp },
+    white_win_probability: engineWhite ? usWp : 1 - usWp,
+    suggestions: scored.slice(0, 3).map(s => ({ san: s.m.san, value: s.ourVal, win_probability: (s.ourVal + 1) / 2 })),
+  };
+}
+
 // One entry point the play loop and self-play both use.
 async function getEngineData() {
-  if (opponent === 'rl' && rlReady) { try { return await hybridMove(game, rlDepth()); } catch (e) { return { error: String(e) }; } }
-  return ask('engine_move', 3);
+  if (opponent === 'netsearch') { try { return await hybridMove(game, rlDepth()); } catch (e) { return { error: String(e) }; } }
+  if (opponent === 'rawnet' && rlReady) { try { return await rawNetMove(); } catch (e) { return { error: String(e) }; } }
+  return ask('engine_move', 3);   // "classical" (and "rawnet" before the net finishes loading)
 }
 
 document.getElementById('opponent').onchange = e => {
-  if (e.target.value === 'rl' && !rlReady) { e.target.value = 'classical'; return; }
+  if (e.target.value === 'rawnet' && !rlReady) { e.target.value = 'netsearch'; }
   opponent = e.target.value;
   const couch = opponent === 'couch';
   document.getElementById('autoFlipRow').style.display = couch ? 'flex' : 'none';
