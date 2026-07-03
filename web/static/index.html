@@ -1261,17 +1261,38 @@ const HB_VAL = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
 const HB_MATE = 100000, HB_INF = 1e9;
 
 // Static evaluation in centipawns, from White's perspective (material + a tiny
-// central nudge so it develops instead of shuffling in equal positions).
+// central nudge + an endgame "mop-up" term so that when it's up decisive
+// material it actually drives the lone king to the edge and delivers mate
+// instead of shuffling into a draw).
 function hbEval(g) {
-  let s = 0;
+  let s = 0, wNK = 0, bNK = 0, wP = 0, bP = 0, wk = null, bk = null;
   const b = g.board();
   for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
     const pc = b[r][f]; if (!pc) continue;
     let v = HB_VAL[pc.type] || 0;
     v += (3.5 - Math.abs(3.5 - f)) + (3.5 - Math.abs(3.5 - r));  // ~0-7cp centre bonus
     s += pc.color === 'w' ? v : -v;
+    if (pc.type === 'k') { if (pc.color === 'w') wk = [f, r]; else bk = [f, r]; }
+    else {
+      if (pc.color === 'w') { wNK += HB_VAL[pc.type]; if (pc.type === 'p') wP++; }
+      else { bNK += HB_VAL[pc.type]; if (pc.type === 'p') bP++; }
+    }
   }
+  s += hbMopup(wk, bk, wNK, bNK, wP, bP);
   return s;
+}
+// Encourage the winning side to corner the bare king (only kicks in once one
+// side is up ~a rook and the losing side has no pawns — i.e. a real KX-vs-K mate).
+function hbMopup(wk, bk, wNK, bNK, wP, bP) {
+  if (!wk || !bk) return 0;
+  let winner = 0;
+  if (wNK - bNK >= 300 && bP === 0) winner = 1;
+  else if (bNK - wNK >= 300 && wP === 0) winner = -1;
+  else return 0;
+  const lk = winner === 1 ? bk : wk;
+  const cmd = Math.abs(3.5 - lk[0]) + Math.abs(3.5 - lk[1]);        // loser king off-centre (want big)
+  const kd = Math.abs(wk[0] - bk[0]) + Math.abs(wk[1] - bk[1]);     // kings apart (want small)
+  return winner * (14 * cmd + 4 * (14 - kd));
 }
 // Order moves captures-first (MVV-LVA-ish) so alpha-beta prunes well.
 function hbMoveScore(m) {
