@@ -21,3 +21,6 @@ pgn/
 .DS_Store
 .vscode/
 .idea/
+
+# Private, local-only notes (never publish)
+*.local.md

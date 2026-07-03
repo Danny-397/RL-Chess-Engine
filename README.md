@@ -9,6 +9,14 @@
 
 **▶ Play it live: [rlchess.xyz](https://rlchess.xyz/)** &nbsp;·&nbsp; mirror: [onrender.com](https://rl-chess-engine.onrender.com/)
 
+<p align="center">
+  <a href="https://rlchess.xyz/">
+    <img src="assets/screenshot_play.png" width="820"
+         alt="Playing the engine at rlchess.xyz — an Italian Game, with a live evaluation bar, the engine's recommended moves, and the self-taught neural network as the opponent." />
+  </a>
+</p>
+<p align="center"><em>A hand-built board, a live evaluation bar, and the engine's own recommended moves — playing the self-taught network in the browser.</em></p>
+
 A clean, fully-documented implementation of an **AlphaZero-style reinforcement
 learning chess engine**, written from scratch in **Python + PyTorch**.
 
@@ -27,6 +35,9 @@ here, implemented in a way meant to be *read and understood*:
 > This project was built to be a clear, correct, end-to-end demonstration of
 > reinforcement learning and search, not to chase grandmaster strength. Every
 > module is small, single-purpose and heavily commented.
+
+📝 **For the story behind it** — what I set out to do, the "draw cycle" that stumped
+me, and why I ended up shipping *two* engines — see [**docs/reflection.md**](docs/reflection.md).
 
 ### What this project demonstrates
 
@@ -130,25 +141,27 @@ it to recommend moves for your position, the eval bar tracks who's ahead, and a
 banner announces checkmate/draw. The backend is stateless (the browser sends the
 position as FEN).
 
-> **Which engine plays you:** the web/console demo uses the **classical alpha-beta
-> searcher** ([`search.py`](search.py)) — material + endgame mop-up evaluation,
-> quiescence and capture ordering. It plays genuinely sound chess (captures, avoids
-> blunders, *converts* won positions into checkmate — it beats the random baseline
-> 10/0) and needs **no PyTorch**. The AlphaZero network + MCTS is the *learning*
-> project (trained via the [Colab notebook](#training-results-and-an-honest-note-on-scale));
-> it's kept separate because an untrained network can't yet play well. Tune the
-> searcher's strength with `--depth` (CLI) or `RLCHESS_DEPTH` (server); 3 is snappy,
-> 4 is stronger.
-
-> **Play the actual neural network (in your browser):** the web UI has an
-> **Opponent** toggle — *Classical* or *AlphaZero net*. The latter runs the trained
-> network **client-side via [onnxruntime-web]**, with no PyTorch backend: it loads
-> `web/static/model.onnx` and chooses moves by a 1-ply value search. To enable it,
-> export the model with the last cell of the Colab notebook (or `export_onnx.py` on a
-> machine where `onnx` installs), drop `model.onnx` into `web/static/`, and redeploy.
-> A built-in self-check verifies the JS board-encoding matches Python before use;
-> if the file or check is missing it silently falls back to the classical engine.
-> (It plays *loosely* — it's the still-learning network.)
+> **Which engine plays you** — the web UI has an **Opponent** selector with four choices:
+>
+> - **Neural net + search** *(default)* — the from-scratch **trained value network** guides a
+>   small material + quiescence (negamax alpha-beta) search that runs **entirely in your browser**
+>   via [onnxruntime-web] — no PyTorch backend. The search guarantees it never hangs a piece; the
+>   network's value breaks ties between near-equal moves. Difficulty sets the search depth (1/2/3 ply).
+> - **Neural net (raw · self-taught)** — the *pure* trained network: a 1-ply value lookup with **zero
+>   search and no chess knowledge added.** This is the genuine reinforcement-learning artifact — and
+>   it is honestly weak (a laptop can't do the millions of self-play games it needs), which is exactly
+>   what *How it works* explains.
+> - **Classical (strong)** — the dependency-light alpha-beta searcher ([`search.py`](search.py):
+>   negamax, quiescence, piece-square tables, endgame mop-up), served by the backend. It plays sound
+>   chess and beats the random baseline 10–0. Tune it with `--depth` (CLI) / `RLCHESS_DEPTH` (server).
+> - **Couch play** — two people share the board.
+>
+> The network runs client-side from [`web/static/model.onnx`](web/static/model.onnx), gated by a
+> **golden self-check** (`model_meta.json`) that confirms the browser's board-encoding matches
+> Python before the net is ever used; if the file or check is missing, the net options fall back to
+> the classical search. To drop in a **retrained** model, export it with the last cell of the
+> [Colab notebook](#training-results-and-an-honest-note-on-scale) (writes `model.onnx` +
+> `model_meta.json`) and redeploy — no code changes.
 
 [onnxruntime-web]: https://onnxruntime.ai/docs/tutorials/web/
 

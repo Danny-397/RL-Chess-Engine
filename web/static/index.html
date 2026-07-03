@@ -291,8 +291,9 @@
       <p class="muted" style="max-width:680px; margin:18px auto 0; font-size:13.5px;">
         Honest note: the star is the <strong>self-taught RL network</strong>, trained from scratch. You can play
         it <strong>raw</strong> — but a laptop can't do enough self-play to make it strong, so on its own it's weak.
-        So the default opponent, <strong>“Neural&nbsp;net&nbsp;+&nbsp;search”</strong>, lets the network's evaluation
-        guide a small search so it plays a genuinely solid game. See
+        So the default opponent, <strong>“Neural&nbsp;net&nbsp;+&nbsp;search”</strong>, pairs the network with a
+        small tactical search so it plays a genuinely solid game — switch to the raw net anytime to meet the
+        learning project on its own. See
         <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
     </div>
 
@@ -307,8 +308,8 @@
         <p>The engine is its own opponent and its own teacher: games become training data, which
            sharpens the next generation.</p></div>
       <div class="card"><h3>Play it now</h3>
-        <p>The live board uses a fast classical search so it plays sound chess today — captures,
-           tactics and real checkmates.</p></div>
+        <p>Face the self-taught network (paired with a quick tactical search so it's a fair fight),
+           the raw network on its own, or a strong classical engine — right in your browser.</p></div>
     </div>
 
     <h2 class="section-title" style="margin-top:48px;">How this is different from other chess engines</h2>
@@ -490,9 +491,11 @@
       <img class="curve" src="static/training_progress.png" alt="training loss and Elo curves" />
       <p class="muted" style="font-size:14px;">Honest note: reaching strong play needs far more
         (GPU) self-play than a laptop CPU allows — the learning machinery is correct, the limit is
-        compute. So the <strong>live board</strong> above uses a fast classical alpha-beta engine
-        (material + endgame heuristics, quiescence) that plays sound chess today, while the neural
-        network remains the from-scratch learning project.</p>
+        compute. So on the <strong>Play</strong> page the default opponent pairs this network with a
+        small in-browser tactical search (so it never simply hangs a piece); you can switch to the
+        <strong>raw self-taught network</strong> to see it play on its own, or to a strong
+        <strong>classical alpha-beta engine</strong> for a tough game. The network stays the
+        from-scratch learning project — the search just makes it a fair opponent today.</p>
 
       <p style="margin-top:24px;">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">Source on GitHub</a>
