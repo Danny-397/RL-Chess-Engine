@@ -1211,17 +1211,28 @@ async function loadRL() {
   try {
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
     rlSession = await ort.InferenceSession.create('static/model.onnx');
-    // Golden self-check: confirm the JS encoding matches Python (incl. the mirror path).
-    const checks = [
-      { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', v: -0.014744, sum: 288 },
-      { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1', v: -0.036084, sum: 289 },
+    // Golden self-check: confirm the JS encoding matches Python (incl. the mirror
+    // path). The reference values come from model_meta.json, which is written by
+    // export_web_model.py next to model.onnx — so a *retrained* model drops in
+    // with no code edits. If the meta file is missing we fall back to a
+    // structural (encoding-sum only) check so the net still enables.
+    let checks = null;
+    try {
+      const r = await fetch('static/model_meta.json', { cache: 'no-store' });
+      if (r.ok) { const m = await r.json(); if (m && Array.isArray(m.golden)) checks = m.golden; }
+    } catch (e) { /* no meta file — fall back below */ }
+    if (!checks) checks = [
+      { fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', sum: 288 },
+      { fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e6 0 1', sum: 289 },
     ];
     for (const c of checks) {
       const enc = encodeBoardFromFen(c.fen);
       let s = 0; for (const x of enc) s += x;
-      if (Math.abs(s - c.sum) > 0.5) throw new Error(`encoding sum ${s} != ${c.sum}`);
+      if (c.sum != null && Math.abs(s - c.sum) > 0.5) throw new Error(`encoding sum ${s} != ${c.sum}`);
       const o = await rlSession.run({ board: new ort.Tensor('float32', enc, [1, 18, 8, 8]) });
-      if (Math.abs(o.value.data[0] - c.v) > 0.02) throw new Error(`value ${o.value.data[0]} != ${c.v}`);
+      const val = o.value.data[0];
+      if (!isFinite(val)) throw new Error('value output not finite');
+      if (c.value != null && Math.abs(val - c.value) > 0.02) throw new Error(`value ${val} != ${c.value}`);
     }
     rlReady = true;
     const opt = document.getElementById('rlOption');
