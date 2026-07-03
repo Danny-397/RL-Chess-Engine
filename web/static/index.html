@@ -1236,7 +1236,7 @@ async function loadRL() {
     }
     rlReady = true;
     const opt = document.getElementById('rlOption');
-    opt.disabled = false; opt.textContent = 'AlphaZero net (learning)';
+    opt.disabled = false; opt.textContent = 'AlphaZero net + search';
     console.log('AlphaZero net: loaded, self-check passed.');
   } catch (e) {
     rlReady = false;
@@ -1245,40 +1245,122 @@ async function loadRL() {
   }
 }
 
-// Pick the engine's move with the RL network (1-ply value search), returned in
-// the same shape as the backend /engine_move response.
-async function rlMove() {
-  const moves = game.moves({ verbose: true });
-  const fens = [], term = [];
-  for (const m of moves) {
-    game.move({ from: m.from, to: m.to, promotion: m.promotion });
-    if (game.game_over()) { term.push(game.in_checkmate() ? 1 : 0); fens.push(null); }
-    else { term.push(null); fens.push(game.fen()); }
-    game.undo();
+// --------------------------------------------------------------------------- //
+// In-browser opponent move selection.
+//
+// The trained value network, run alone as a 1-ply lookup, is far too weak to
+// play sound chess (a laptop can't do enough self-play to teach it material — it
+// evaluates a queen-up position the same as an equal one, so it hangs pieces).
+// So the "AlphaZero net" opponent picks moves with a small material + capture-
+// aware (quiescence) negamax search — which reliably wins hanging material and
+// never blunders a piece for nothing — and uses the network's value only as a
+// gentle tie-break between near-equal moves. The evaluation bar is driven by the
+// real material score, so it's honest about who's winning.
+// --------------------------------------------------------------------------- //
+const HB_VAL = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+const HB_MATE = 100000, HB_INF = 1e9;
+
+// Static evaluation in centipawns, from White's perspective (material + a tiny
+// central nudge so it develops instead of shuffling in equal positions).
+function hbEval(g) {
+  let s = 0;
+  const b = g.board();
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const pc = b[r][f]; if (!pc) continue;
+    let v = HB_VAL[pc.type] || 0;
+    v += (3.5 - Math.abs(3.5 - f)) + (3.5 - Math.abs(3.5 - r));  // ~0-7cp centre bonus
+    s += pc.color === 'w' ? v : -v;
   }
-  const realFens = fens.filter(f => f !== null);
-  const vals = realFens.length ? await netValueBatch(realFens) : [];
-  let vi = 0;
-  const scored = moves.map((m, i) => {
-    let ourVal;
-    if (term[i] !== null) ourVal = term[i] === 1 ? 1.0 : 0.0;   // mate = win, draw = 0
-    else ourVal = -vals[vi++];                                  // negate opponent's value
-    return { m, ourVal: Math.max(-1, Math.min(1, ourVal)) };
+  return s;
+}
+// Order moves captures-first (MVV-LVA-ish) so alpha-beta prunes well.
+function hbMoveScore(m) {
+  let s = m.captured ? 10 * (HB_VAL[m.captured] || 0) - (HB_VAL[m.piece] || 0) : 0;
+  if (m.flags.indexOf('p') >= 0) s += 900;
+  return s;
+}
+function hbOrder(moves) { return moves.slice().sort((a, b) => hbMoveScore(b) - hbMoveScore(a)); }
+function hbTerminal(g) {                       // 0 = draw, negative = side-to-move mated, null = not terminal
+  if (g.in_checkmate()) return -HB_MATE;
+  if (g.in_stalemate() || g.in_draw() || g.in_threefold_repetition() || g.insufficient_material()) return 0;
+  return null;
+}
+// Quiescence: only search captures/promotions so we don't stop mid-trade.
+function hbQuiesce(g, alpha, beta) {
+  const t = hbTerminal(g); if (t !== null) return t;
+  let stand = (g.turn() === 'w' ? 1 : -1) * hbEval(g);
+  if (stand >= beta) return beta;
+  if (stand > alpha) alpha = stand;
+  const caps = hbOrder(g.moves({ verbose: true }).filter(m => m.captured || m.flags.indexOf('e') >= 0 || m.flags.indexOf('p') >= 0));
+  for (const m of caps) {
+    g.move({ from: m.from, to: m.to, promotion: m.promotion });
+    const sc = -hbQuiesce(g, -beta, -alpha);
+    g.undo();
+    if (sc >= beta) return beta;
+    if (sc > alpha) alpha = sc;
+  }
+  return alpha;
+}
+// Negamax alpha-beta; score in centipawns from the side-to-move's perspective.
+function hbSearch(g, depth, alpha, beta) {
+  const t = hbTerminal(g); if (t !== null) return t;
+  if (depth <= 0) return hbQuiesce(g, alpha, beta);
+  let best = -HB_INF;
+  for (const m of hbOrder(g.moves({ verbose: true }))) {
+    g.move({ from: m.from, to: m.to, promotion: m.promotion });
+    const sc = -hbSearch(g, depth - 1, -beta, -alpha);
+    g.undo();
+    if (sc > best) best = sc;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+function rlDepth() { return difficulty >= 4 ? 3 : (difficulty <= 2 ? 1 : 2); }  // Easy/Normal/Hard
+
+// Choose a move with the material search, nudged by the network value. Returned
+// in the same shape as the backend /engine_move response.
+async function hybridMove(g, depth) {
+  const engineWhite = g.turn() === 'w';
+  const moves = g.moves({ verbose: true });
+  const scored = [], fens = [];
+  for (const m of moves) {
+    g.move({ from: m.from, to: m.to, promotion: m.promotion });
+    const t = hbTerminal(g);
+    const sc = t !== null ? (t === 0 ? 0 : HB_MATE)          // mate for us = win; draw = 0
+                          : -hbSearch(g, depth - 1, -HB_INF, HB_INF);
+    fens.push(g.fen());
+    scored.push({ m, sc });
+    g.undo();
+  }
+  // Network value as a *small* tie-break (never enough to justify a blunder).
+  let netVals = null;
+  try { if (rlReady) netVals = await netValueBatch(fens); } catch (e) { netVals = null; }
+  const NET_CP = 40;
+  scored.forEach((s, i) => {
+    s.ourNet = netVals ? -netVals[i] : 0;                    // net value from our side
+    s.total = s.sc + NET_CP * s.ourNet;
   });
-  scored.sort((a, b) => b.ourVal - a.ourVal);
-  const best = scored[0], usWp = (best.ourVal + 1) / 2;
-  const engineWhite = game.turn() === 'w';
+  scored.sort((a, b) => b.total - a.total);
+  const best = scored[0];
+  // Honest eval bar: convert the chosen line's material score to a win prob.
+  const cpToWp = cp => 1 / (1 + Math.pow(10, -cp / 400));
+  const wwp = cpToWp(engineWhite ? best.sc : -best.sc);
   return {
     game_over: false,
-    move: { uci: best.m.from + best.m.to + (best.m.promotion || ''), san: best.m.san, win_probability: usWp },
-    white_win_probability: engineWhite ? usWp : 1 - usWp,
-    suggestions: scored.slice(0, 3).map(s => ({ san: s.m.san, value: s.ourVal, win_probability: (s.ourVal + 1) / 2 })),
+    move: { uci: best.m.from + best.m.to + (best.m.promotion || ''), san: best.m.san, win_probability: engineWhite ? wwp : 1 - wwp },
+    white_win_probability: wwp,
+    suggestions: scored.slice(0, 3).map(s => ({
+      san: s.m.san,
+      value: Math.max(-99, Math.min(99, s.sc / 100)),        // pawns, engine's perspective
+      win_probability: cpToWp(engineWhite ? s.sc : -s.sc),
+    })),
   };
 }
 
 // One entry point the play loop and self-play both use.
 async function getEngineData() {
-  if (opponent === 'rl' && rlReady) { try { return await rlMove(); } catch (e) { return { error: String(e) }; } }
+  if (opponent === 'rl' && rlReady) { try { return await hybridMove(game, rlDepth()); } catch (e) { return { error: String(e) }; } }
   return ask('engine_move', 3);
 }
 
