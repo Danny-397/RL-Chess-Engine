@@ -72,7 +72,7 @@
   nav button:hover { color: var(--ink); background: rgba(255,255,255,.04); }
   nav button.active { color: var(--gold); background: rgba(212,162,76,.10); }
 
-  main { max-width: 1180px; margin: 0 auto; padding: 20px 28px; }
+  main { max-width: 1380px; margin: 0 auto; padding: 20px 28px; }
   .view { display: none; animation: fade .25s ease; }
   .view.active { display: block; }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
@@ -101,14 +101,18 @@
   .muted { color: var(--muted); }
 
   /* ---- play layout ---- */
-  .play-wrap { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  .play-wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  /* left = engine recommendations + moves · centre = eval bar + board · right = controls */
+  .left-col { width: 240px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .center-col { display: flex; flex-direction: column; align-items: center; }
+  .board-row { display: flex; align-items: stretch; gap: 12px; }
 
   .board-frame {
-    /* As large as possible while still guaranteed to fit: whichever is smallest
-       of a big max, the available width, or ~74% of the viewport HEIGHT (which
-       leaves just enough for the header + status line, so the whole board is
-       always visible without zooming). */
-    --size: min(820px, 94vw, 78vh);
+    /* As large as possible while still guaranteed to fit: the smallest of a hard
+       cap, the height the viewport can show (leaving room for header + status so
+       nothing is ever cut off at 100% zoom), or the width left over once the two
+       side columns are placed. */
+    --size: min(736px, calc(100vh - 184px), calc(100vw - 644px));
     padding: clamp(6px, 1.2vw, 14px);
     border-radius: 14px;
     background: linear-gradient(145deg, #6b4a2e, var(--frame) 60%, #3f2a1a);
@@ -145,7 +149,13 @@
       border: 5px solid rgba(40,25,10,.30); border-radius: 50%; }
 
   /* ---- side panel ---- */
-  .panel-col { width: 300px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .panel-col { width: 240px; max-width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  /* On narrower screens the side columns stack and the board uses the full width. */
+  @media (max-width: 1040px) {
+    .board-frame { --size: min(96vw, calc(100vh - 150px)); }
+    .left-col, .panel-col { width: 100%; }
+    .center-col { order: -1; width: 100%; }
+  }
   .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
   .pcard h4 { margin: 0 0 12px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -202,10 +212,28 @@
   }
   /* opening name */
   .opening { margin-top: 6px; font-size: 13px; color: var(--gold); font-weight: 600; min-height: 18px; }
-  .evalbar { height: 16px; border-radius: 9px; overflow: hidden; display: flex; background: #0e0b08; border: 1px solid var(--line); }
-  .evalbar .w { background: linear-gradient(90deg,#f2e2c5,#e9cfa3); }
-  .evalbar .b { background: #2a2017; }
-  .evaltext { margin-top: 7px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* vertical evaluation bar — runs the full height of the board, on its left.
+     White's winning chances fill up from the bottom; the rest is Black. */
+  .evalbar-vert {
+    position: relative; width: 26px; flex: none; border-radius: 13px; overflow: hidden;
+    background: linear-gradient(180deg, #241a10, #2c2118);   /* Black's side */
+    border: 1px solid var(--line);
+    box-shadow: 0 14px 40px rgba(0,0,0,.4), inset 0 0 0 1px rgba(0,0,0,.28);
+  }
+  .evalbar-vert .evalw {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 50%;
+    background: linear-gradient(180deg, #f4e6ca, #e4cfa6);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
+    transition: height .5s cubic-bezier(.4,.85,.3,1);
+  }
+  .evalbar-vert .mid { position: absolute; left: 0; right: 0; top: 50%; height: 1px;
+    background: rgba(212,162,76,.55); z-index: 3; }
+  .evalbar-vert .evallabel {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 4;
+    background: rgba(20,15,10,.82); color: var(--gold); border: 1px solid rgba(212,162,76,.35);
+    padding: 2px 4px; border-radius: 6px; font-size: 10px; font-weight: 700;
+    letter-spacing: .01em; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
   ol.moves { list-style: none; margin: 0; padding: 0; }
   ol.moves li { display: flex; justify-content: space-between; padding: 9px 11px; border-radius: 9px;
       background: var(--bg2); margin-bottom: 7px; font-variant-numeric: tabular-nums; }
@@ -304,20 +332,41 @@
   <!-- ===================== PLAY ===================== -->
   <section id="play" class="view">
     <div class="play-wrap">
-      <div>
+      <!-- LEFT: engine recommendations + move list -->
+      <div class="left-col">
+        <div class="pcard">
+          <h4>Engine recommends</h4>
+          <ol class="moves" id="moves"><li><span class="meta">Press “Hint”.</span></li></ol>
+        </div>
+        <div class="pcard">
+          <h4>Moves</h4>
+          <div class="history" id="history"><span class="empty">No moves yet.</span></div>
+        </div>
+      </div>
+
+      <!-- CENTRE: vertical evaluation bar + board -->
+      <div class="center-col">
         <div class="banner" id="banner"><span id="bannerText"></span><button class="btn" id="bannerNew">New game</button></div>
-        <div class="board-frame">
-          <div style="position:relative;">
-            <div class="board" id="board"></div>
-            <svg class="arrows" id="annotations" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
-            <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
-            <div class="promo-overlay" id="promo"><div class="promo-box" id="promoBox"></div></div>
+        <div class="board-row">
+          <div class="evalbar-vert" id="evalBar" title="Evaluation — White's winning chances fill up from the bottom">
+            <div class="evalw" id="evalW" style="height:50%"></div>
+            <div class="mid"></div>
+            <span class="evallabel" id="evalText">50%</span>
+          </div>
+          <div class="board-frame">
+            <div style="position:relative;">
+              <div class="board" id="board"></div>
+              <svg class="arrows" id="annotations" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
+              <svg class="arrows" id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
+              <div class="promo-overlay" id="promo"><div class="promo-box" id="promoBox"></div></div>
+            </div>
           </div>
         </div>
         <div class="statusrow"><span class="loader" id="spinner"></span><span id="status">You play White. Click a piece then its destination — or drag it.</span></div>
         <div class="opening" id="opening"></div>
       </div>
 
+      <!-- RIGHT: controls, clock, material -->
       <div class="panel-col">
         <div class="pcard">
           <h4>Game</h4>
@@ -375,22 +424,6 @@
           <h4>Material</h4>
           <div class="caprow"><div class="lbl" id="capYouLbl">You captured</div><div class="cap" id="capYou"></div></div>
           <div class="caprow"><div class="lbl" id="capOppLbl">Engine captured</div><div class="cap" id="capOpp"></div></div>
-        </div>
-
-        <div class="pcard">
-          <h4>Evaluation</h4>
-          <div class="evalbar"><div class="w" id="evalW" style="width:50%"></div><div class="b" id="evalB" style="width:50%"></div></div>
-          <div class="evaltext" id="evalText">Even · 50%</div>
-        </div>
-
-        <div class="pcard">
-          <h4>Engine recommends</h4>
-          <ol class="moves" id="moves"><li><span class="meta">Press “Hint”.</span></li></ol>
-        </div>
-
-        <div class="pcard">
-          <h4>Moves</h4>
-          <div class="history" id="history"><span class="empty">No moves yet.</span></div>
         </div>
       </div>
     </div>
@@ -692,10 +725,10 @@ function setStatus(msg) { document.getElementById('status').textContent = msg; }
 function setEval(whiteWinProb) {
   if (whiteWinProb == null) return;
   const pct = Math.round(whiteWinProb * 100);
-  document.getElementById('evalW').style.width = pct + '%';
-  document.getElementById('evalB').style.width = (100 - pct) + '%';
+  // White fills up from the bottom of the vertical bar; the remainder is Black.
+  document.getElementById('evalW').style.height = pct + '%';
   document.getElementById('evalText').textContent =
-    pct === 50 ? 'Even · 50%' : pct > 50 ? `White +  ${pct}%` : `Black +  ${100 - pct}%`;
+    pct === 50 ? '50%' : (pct > 50 ? pct : 100 - pct) + '%';
 }
 
 function setMoves(suggestions) {
