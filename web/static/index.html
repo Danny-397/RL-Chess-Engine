@@ -163,9 +163,14 @@
   .toggle { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 14px; color: var(--muted); cursor: pointer; }
   .toggle input { width: 16px; height: 16px; accent-color: var(--gold); }
   .optrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 14px; color: var(--muted); }
+  .optrow > span { flex: none; }
   .optrow select {
+    /* All four dropdowns share the remaining width so their right edges line up
+       and the longest label ("Neural net + search") can't push past the card. */
+    flex: 1 1 auto; min-width: 0; max-width: 172px;
     font: inherit; font-size: 13px; color: var(--ink); background: var(--bg2);
     border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   /* move history */
   .history { max-height: 200px; overflow-y: auto; font-variant-numeric: tabular-nums; font-size: 14px; }
