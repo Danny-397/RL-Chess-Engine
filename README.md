@@ -132,7 +132,7 @@ The most demoable way to play: a drag-and-drop board with a live evaluation bar
 and a "recommended moves" panel.
 
 ```bash
-pip install -r requirements-web.txt   # python-chess + fastapi + uvicorn (no torch)
+pip install -r requirements.txt       # python-chess + fastapi + uvicorn (no torch)
 python main.py --mode serve           # then open http://127.0.0.1:8000
 ```
 
@@ -179,7 +179,7 @@ Or configure a **Web Service** manually:
 
 | Setting | Value |
 |---|---|
-| Build command | `pip install --upgrade pip && pip install -r requirements-web.txt` |
+| Build command | `pip install --upgrade pip && pip install -r requirements.txt` |
 | Start command | `uvicorn web.server:app --host 0.0.0.0 --port $PORT` |
 | Env var | `RLCHESS_DEPTH=3` (4 = stronger, slower) |
 
