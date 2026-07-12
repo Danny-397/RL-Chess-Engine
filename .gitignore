@@ -24,3 +24,6 @@ pgn/
 
 # Private, local-only notes (never publish)
 *.local.md
+
+# experiment driver scratch outputs (charts + filled report are committed instead)
+experiment_out/
