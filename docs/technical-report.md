@@ -318,3 +318,29 @@ self-play game, record the reason it ended and aggregate per iteration:
 If the scaled curve bends where the baseline flatlines, the experiment is done —
 even partially. Set a **hard GPU budget cap** before starting; stop when the trend
 is legible, not when the engine is "good."
+
+### How the metrics are produced (tooling already in the repo)
+
+- **Loss curves + Elo vs. iteration** — `plot_progress.py` parses `logs/training.log`
+  (loss lines + `[eval]` lines) into a PNG. Enable Elo lines by training with
+  `--eval-every N`.
+- **Draw cycle: non-decisive rate + termination histogram** — `analyze_selfplay.py`
+  reads the per-iteration PGNs written by `--save-pgn`, replays each game to its
+  final position, classifies the termination (checkmate / stalemate / insufficient
+  / repetition / fifty-move / max-moves-cap), and writes a per-iteration CSV
+  (+ optional chart). The headline series is the **non-decisive rate** (fraction of
+  games *not* won by checkmate) — the draw cycle on a graph.
+
+Concrete commands (note the CLI uses `--mode`, e.g. `--mode train`):
+
+```bash
+# a run that captures everything §5/§6 need
+python main.py --mode train --iterations N --games G --simulations S \
+    --eval-every K --save-pgn --device cuda
+python analyze_selfplay.py --pgn-dir pgn --label scaled \
+    --out-csv logs/term_scaled.csv --plot assets/term_scaled.png
+python plot_progress.py --out assets/progress_scaled.png
+```
+
+Run the same two analysis commands against the baseline run's PGNs/log (with their
+own `--label`/paths) and overlay the two `non_decisive_rate` columns for §5.3.
