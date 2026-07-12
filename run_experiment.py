@@ -58,9 +58,18 @@ OUT_DIR = "experiment_out"
 # One stage (baseline or scaled)
 # --------------------------------------------------------------------------- #
 def build_config(device: str, iters: int, games: int, sims: int, workers: int,
-                 eval_every: int, eval_games: int, eval_sims: int) -> Config:
+                 eval_every: int, eval_games: int, eval_sims: int,
+                 material_weight: float = 0.0) -> Config:
     """Assemble a Config for one stage. Everything not set here is the default,
-    so the two stages differ ONLY in compute — a clean comparison."""
+    so stages differ ONLY in the variable under test (compute, or the self-play
+    material assist) — a clean comparison.
+
+    ``material_weight`` blends a material signal into the search's leaf value
+    (``value = (1-w)*network_value + w*material``). It is ``0.0`` for the pure
+    baseline/scaled runs; the *assisted* ablation sets it > 0 during self-play to
+    test whether a richer self-play signal — at fixed compute — breaks the draw
+    cycle by producing decisive games the value head can actually learn from.
+    """
     cfg = Config()
     cfg.training.device = device
     cfg.training.num_iterations = iters
@@ -71,6 +80,7 @@ def build_config(device: str, iters: int, games: int, sims: int, workers: int,
     cfg.training.eval_games = eval_games
     cfg.training.eval_simulations = eval_sims
     cfg.mcts.num_simulations = sims
+    cfg.mcts.material_weight = material_weight
     return cfg
 
 
@@ -141,6 +151,7 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
         "iters": cfg.training.num_iterations,
         "games_per_iter": cfg.training.games_per_iteration,
         "simulations": cfg.mcts.num_simulations,
+        "material_weight": cfg.mcts.material_weight,
         "total_self_play_games": sum(r["games"] for r in per_iter.values()),
         "final_non_decisive_rate": round(asp.non_decisive_rate(final_row), 4),
         "final_checkmate_rate": round(
@@ -163,49 +174,93 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
 # --------------------------------------------------------------------------- #
 # Results write-up
 # --------------------------------------------------------------------------- #
-def write_results(baseline: Dict, scaled: Dict) -> str:
-    """Write a ready-to-paste §5.3 results block and return its path."""
-    nd_drop = baseline["final_non_decisive_rate"] - scaled["final_non_decisive_rate"]
-    elo_gain = scaled["elo_vs_random"] - baseline["elo_vs_random"]
+def _row(m: Dict) -> str:
+    return (f"| {m['name']} | {m['total_self_play_games']} | "
+            f"{m['simulations']} | {m.get('material_weight', 0.0):.2f} | "
+            f"{m['final_non_decisive_rate']:.0%} | "
+            f"{m['final_checkmate_rate']:.0%} | "
+            f"{m['eval_wins']}/{m['eval_draws']}/{m['eval_losses']} | "
+            f"{m['elo_vs_random']:+.0f} |")
+
+
+def _verdict(ref: Dict, test: Dict, lever: str) -> str:
+    """One honest verdict comparing a test run to the baseline on the two
+    draw-cycle metrics."""
+    nd_drop = ref["final_non_decisive_rate"] - test["final_non_decisive_rate"]
+    elo_gain = test["elo_vs_random"] - ref["elo_vs_random"]
     if nd_drop > 0.01 and elo_gain > 0:
-        verdict = ("**Hypothesis supported.** Scaling compute lowered the self-play "
-                   "non-decisive rate and raised Elo vs. random, with the code "
-                   "unchanged — consistent with a compute ceiling rather than an "
-                   "algorithmic bug.")
-    elif nd_drop > 0.01 or elo_gain > 0:
-        verdict = ("**Hypothesis partially supported.** One of the two metrics moved "
-                   "in the predicted direction; more compute is likely needed for a "
-                   "clear reversal, but the direction is consistent with the "
-                   "compute-ceiling explanation.")
+        return (f"**Supported.** {lever} lowered the non-decisive rate "
+                f"({nd_drop:+.1%}) and raised Elo ({elo_gain:+.0f}).")
+    if nd_drop > 0.01 or elo_gain > 0:
+        return (f"**Partially supported.** Only one metric moved as predicted "
+                f"(non-decisive {(-nd_drop):+.1%}, Elo {elo_gain:+.0f}).")
+    return (f"**Not supported at this scale.** Neither metric moved as predicted "
+            f"(non-decisive {(-nd_drop):+.1%}, Elo {elo_gain:+.0f}) — report honestly.")
+
+
+def write_results(baseline: Dict, scaled: Dict, assisted: Dict) -> str:
+    """Write a ready-to-paste two-experiment results block and return its path.
+
+    Experiment A (compute): baseline vs scaled — does *more compute* break the
+    draw cycle?  Experiment B (signal, fixed compute): baseline vs assisted —
+    does a richer self-play value signal break it *without* more compute?
+    Reading the two together distinguishes the cause.
+    """
+    header = ("| Run | Self-play games | MCTS sims | Self-play material w | "
+              "Non-decisive rate | Checkmate rate | Eval W/D/L | Elo vs random |\n"
+              "|---|---|---|---|---|---|---|---|")
+
+    ver_a = _verdict(baseline, scaled, "Scaling compute")
+    ver_b = _verdict(baseline, assisted, "A self-play material assist (fixed compute)")
+
+    # A small interpretation matrix so the causal reading is explicit.
+    a_moved = (baseline["final_non_decisive_rate"] - scaled["final_non_decisive_rate"] > 0.01
+               or scaled["elo_vs_random"] - baseline["elo_vs_random"] > 0)
+    b_moved = (baseline["final_non_decisive_rate"] - assisted["final_non_decisive_rate"] > 0.01
+               or assisted["elo_vs_random"] - baseline["elo_vs_random"] > 0)
+    if a_moved and b_moved:
+        reading = ("Both levers help — the plateau is driven by *both* limited compute "
+                   "and an impoverished self-play signal (they compound).")
+    elif b_moved and not a_moved:
+        reading = ("The **signal**, not raw compute, dominates: enriching self-play "
+                   "broke the cycle at fixed compute while extra compute alone did not.")
+    elif a_moved and not b_moved:
+        reading = ("**Compute** dominates: more self-play helped while the material "
+                   "assist alone did not — consistent with the classic compute ceiling.")
     else:
-        verdict = ("**Hypothesis not supported at this scale.** Neither metric moved "
-                   "as predicted; report this honestly — either more compute is "
-                   "required, or the plateau has an additional cause (e.g. missing "
-                   "move-history planes, §8).")
+        reading = ("Neither lever moved the metrics at this scale — the cause likely "
+                   "lies elsewhere (e.g. encoding: missing move-history planes, §8).")
 
-    def row(m: Dict) -> str:
-        return (f"| {m['name']} | {m['total_self_play_games']} | "
-                f"{m['simulations']} | {m['final_non_decisive_rate']:.0%} | "
-                f"{m['final_checkmate_rate']:.0%} | "
-                f"{m['eval_wins']}/{m['eval_draws']}/{m['eval_losses']} | "
-                f"{m['elo_vs_random']:+.0f} |")
+    md = f"""# Experiment results — causes of the draw cycle (auto-generated)
 
-    md = f"""# Experiment results — compute-scaling test (auto-generated)
+Two controlled experiments, identical code, isolating one variable each. Paste
+the tables + verdicts into `docs/technical-report.md` §5.3.
 
-Paste this table and verdict into `docs/technical-report.md` §5.3.
+## Experiment A — compute scaling
+Does *more compute* break the draw cycle? (material assist = 0 in both)
 
-| Run | Self-play games | MCTS sims | Non-decisive rate | Checkmate rate | Eval W/D/L vs random | Elo vs random |
-|---|---|---|---|---|---|---|
-{row(baseline)}
-{row(scaled)}
+{header}
+{_row(baseline)}
+{_row(scaled)}
 
-**Change (scaled − baseline):** non-decisive rate {(-nd_drop):+.1%}, Elo {elo_gain:+.0f}.
+{ver_a}
 
-{verdict}
+## Experiment B — self-play signal, at fixed compute
+Does a richer self-play value signal break the draw cycle *without* more compute?
+(same compute as baseline; only the self-play material weight differs)
 
-Charts: `assets/term_baseline.png`, `assets/term_scaled.png`,
-`assets/progress_baseline.png`, `assets/progress_scaled.png`.
-Raw per-iteration CSVs: `experiment_out/term_baseline.csv`, `experiment_out/term_scaled.csv`.
+{header}
+{_row(baseline)}
+{_row(assisted)}
+
+{ver_b}
+
+## Reading the two together
+{reading}
+
+Charts: `assets/term_baseline.png`, `assets/term_scaled.png`, `assets/term_assisted.png`,
+and the matching `assets/progress_*.png`.
+Raw CSVs: `experiment_out/term_baseline.csv`, `term_scaled.csv`, `term_assisted.csv`.
 """
     os.makedirs("docs", exist_ok=True)
     path = os.path.join("docs", "experiment-results.md")
@@ -233,6 +288,12 @@ def main() -> None:
     p.add_argument("--scaled-iters", type=int, default=25)
     p.add_argument("--scaled-games", type=int, default=40)
     p.add_argument("--scaled-sims", type=int, default=160)
+    # assisted-ablation knob (Experiment B): self-play material weight, fixed compute
+    p.add_argument("--assist-weight", type=float, default=0.30,
+                   help="self-play material blend for the fixed-compute ablation "
+                        "(0 = off; the baseline always uses 0).")
+    p.add_argument("--skip-assisted", action="store_true",
+                   help="run only Experiment A (compute scaling), skip the ablation.")
     # eval knobs
     p.add_argument("--eval-games", type=int, default=50)
     p.add_argument("--eval-sims", type=int, default=50)
@@ -267,24 +328,33 @@ def main() -> None:
         args.device, args.scaled_iters, args.scaled_games, args.scaled_sims,
         args.workers, eval_every=max(1, args.scaled_iters // 5),
         eval_games=args.eval_games, eval_sims=args.eval_sims)
+    # Experiment B: SAME compute as baseline, only the self-play material weight differs.
+    assisted_cfg = build_config(
+        args.device, args.base_iters, args.base_games, args.base_sims,
+        args.workers, eval_every=max(1, args.base_iters // 5),
+        eval_games=args.eval_games, eval_sims=args.eval_sims,
+        material_weight=args.assist_weight)
 
     baseline = run_stage("baseline", baseline_cfg, args.eval_games, args.eval_sims)
     scaled = run_stage("scaled", scaled_cfg, args.eval_games, args.eval_sims)
+    if args.skip_assisted:
+        assisted = dict(baseline)  # neutral placeholder so the write-up still renders
+        assisted["name"] = "assisted (skipped)"
+    else:
+        assisted = run_stage("assisted", assisted_cfg, args.eval_games, args.eval_sims)
 
-    results_path = write_results(baseline, scaled)
+    results_path = write_results(baseline, scaled, assisted)
 
     print("\n" + "=" * 68)
     print("EXPERIMENT COMPLETE")
     print("=" * 68)
-    print(f"baseline: non-decisive {baseline['final_non_decisive_rate']:.0%}, "
-          f"Elo {baseline['elo_vs_random']:+.0f}, "
-          f"{baseline['total_self_play_games']} games")
-    print(f"scaled:   non-decisive {scaled['final_non_decisive_rate']:.0%}, "
-          f"Elo {scaled['elo_vs_random']:+.0f}, "
-          f"{scaled['total_self_play_games']} games")
+    for m in (baseline, scaled, assisted):
+        print(f"{m['name']:>20}: non-decisive {m['final_non_decisive_rate']:.0%}, "
+              f"Elo {m['elo_vs_random']:+.0f}, "
+              f"material_w {m.get('material_weight', 0.0):.2f}, "
+              f"{m['total_self_play_games']} games")
     print(f"\nResults written to {results_path}")
-    print("Charts in assets/: term_baseline.png, term_scaled.png, "
-          "progress_baseline.png, progress_scaled.png")
+    print("Charts in assets/: term_{baseline,scaled,assisted}.png + progress_*.png")
 
 
 if __name__ == "__main__":

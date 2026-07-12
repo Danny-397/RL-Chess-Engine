@@ -194,27 +194,57 @@ difference**. A network that cannot reliably beat random has not learned anythin
 the honest early result here is roughly a 50% draw rate against random — the entry
 point to §6.
 
-### 5.3 The key experiment: is the plateau a bug or a compute ceiling?
-**Hypothesis.** The draw plateau (§6) is a *resource* limit, not an algorithmic
-error — the algorithm is correct but was trained on far too few games.
+### 5.3 Two experiments: *what* causes the draw cycle?
 
-**Method.** Hold the code fixed. Run the identical pipeline at two (or more) compute
-scales — a baseline (`⟨FILL: ~100⟩` games, CPU) and a scaled run (`⟨FILL: N⟩` games
-on a rented GPU) — and compare the trajectories of two metrics over training:
+Rather than assert that the plateau is "just a compute limit," this section runs
+**two controlled experiments** that isolate two competing causes. Both hold the
+code fixed and vary exactly one thing; both are produced by a single driver
+(`run_experiment.py`) and the numbers below are auto-written to
+`docs/experiment-results.md` (paste them in).
 
-- **draw rate** in self-play games, and
-- **Elo vs. random**.
+The two headline metrics in both experiments are the **self-play non-decisive
+rate** (fraction of games *not* won by checkmate — the draw cycle on a graph) and
+**Elo vs. random**.
 
-**Prediction / result.** If the hypothesis holds, the scaled run's draw rate falls
-and Elo rises where the baseline flatlines. Even a *partial* reversal supports the
-claim; grandmaster strength is not required.
+**Experiment A — compute scaling.** *Hypothesis: the plateau is a resource
+ceiling.* Run the identical pipeline at a small baseline (~⟨FILL⟩ games) and a
+larger scaled run (~⟨FILL⟩ games on GPU); the material assist is `0` in both. If
+the hypothesis holds, the scaled run's non-decisive rate falls and Elo rises where
+the baseline flatlines.
 
-| Metric | Baseline (~100 games, CPU) | Scaled (N games, GPU) |
+| Run | Self-play games | Non-decisive rate | Elo vs random |
+|---|---|---|---|
+| baseline | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ |
+| scaled | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ |
+
+**Experiment B — self-play signal at *fixed* compute.** *Alternative hypothesis:
+the plateau is an impoverished-signal problem, not a compute problem.* The draw
+cycle is ultimately a **value-learning** failure — if every self-play game draws,
+the value target `z ≈ 0` everywhere and the value head can only learn "even" (§6).
+This experiment tests whether enriching the self-play *search signal* — blending a
+material term into leaf evaluation during self-play (`material_weight = w`), so the
+search converts advantages and produces **decisive** games the value head can learn
+from — breaks the cycle **without any extra compute**. Same compute as the
+baseline; only the self-play material weight differs.
+
+| Run | Self-play games | Material w | Non-decisive rate | Elo vs random |
+|---|---|---|---|---|
+| baseline | ⟨FILL⟩ | 0.00 | ⟨FILL⟩ | ⟨FILL⟩ |
+| assisted | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ |
+
+**Reading the two together (the point of the design).** Comparing which lever
+moves the metrics *distinguishes the cause*, rather than assuming it:
+
+| Compute helps (A)? | Signal helps (B)? | Interpretation |
 |---|---|---|
-| Final policy loss | ⟨FILL⟩ | ⟨FILL⟩ |
-| Self-play draw rate | ⟨FILL⟩ | ⟨FILL⟩ |
-| Elo vs. random | ⟨FILL⟩ | ⟨FILL⟩ |
-| Won-position conversion | ⟨FILL⟩ | ⟨FILL⟩ |
+| yes | no | classic **compute ceiling** |
+| no | yes | an **impoverished self-play signal**, not raw compute |
+| yes | yes | both compound |
+| no | no | cause lies elsewhere — e.g. encoding (move-history planes, §8) |
+
+This turns a *known* result ("AlphaZero needs compute") into an actual
+*investigation* of a specific failure mode — the contribution here is the
+diagnosis and the controlled test, not the (well-known) algorithm.
 
 ### 5.4 Ablations *(optional, cheap, strengthens the report)*
 - **`material_weight`** blended into leaf evaluation at play time (0.0 = pure
@@ -269,9 +299,19 @@ JS↔Python board-encoding **self-check** before trusting it); and a memory/thre
 fix (parallel self-play oversubscribed CPU/BLAS threads and exhausted memory —
 capping thread counts and falling back to sequential self-play under pressure).
 
-## 8. Limitations and Future Work  *(placeholder)*
-Add move-history planes; rent GPU compute *before* drawing strength conclusions;
-larger network / more residual blocks; stronger baselines than random.
+## 8. Limitations and Future Work
+- **Move-history planes (the encoding hypothesis).** Real AlphaZero stacks the last
+  *T* positions in its input, which helps the network reason about repetition — a
+  plausible *third* cause of the draw cycle beyond §5.3's two. Adding them here is
+  non-trivial because MCTS clones the board with `stack=False` and rebuilds
+  positions by replaying from the root, so pre-root history is not consistently
+  available inside the search. Doing it *correctly* requires threading recent
+  history through the search so self-play and leaf evaluation see the *same*
+  encoding — worth doing precisely because a botched version would reintroduce the
+  silent encoding bugs §4.5 guards against. This is the natural next experiment: at
+  fixed compute, does adding history planes lower the non-decisive rate?
+- Rent GPU compute *before* drawing strength conclusions.
+- Larger network / more residual blocks; stronger baselines than random.
 
 ## 9. Conclusion  *(placeholder)*
 The three AlphaZero pieces fit together in code, not just diagrams; the subtle bugs
