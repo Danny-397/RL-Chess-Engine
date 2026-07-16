@@ -9,9 +9,12 @@
 > self-play termination tables, the periodic evaluation lines, and the loss curve.
 > Two things could **not** be recovered from the surviving logs and are marked where
 > they appear: (1) the win/draw/loss split of each stage's *final* stand-alone
-> 50-game evaluation (only its Elo survived), and (2) the chart PNGs
-> (`assets/term_*.png`, `assets/progress_*.png`) and a downloadable checkpoint,
-> which were lost with the Kaggle session. Both regenerate by re-running the driver.
+> 50-game evaluation (only its Elo survived), and (2) a downloadable trained
+> checkpoint, which was lost with the Kaggle session (re-run the driver to
+> regenerate one). The figures below are plotted directly from the per-iteration
+> numbers transcribed in this file.
+
+![The draw cycle — non-decisive rate and Elo vs. random across the three stages](../assets/draw_cycle.png)
 
 ## Run configuration
 
@@ -197,6 +200,8 @@ scaled's iter-25 checkpoint read −21 but its final match read −7) — indepe
 ---
 
 ## C. Training loss
+
+![Training dynamics of the scaled run — policy, value, and total loss](../assets/training_progress.png)
 
 Total loss = policy cross-entropy + value MSE. Start (iter 1) → end (final iter):
 

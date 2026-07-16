@@ -326,12 +326,11 @@ fitting the data, and is the engine actually getting stronger?*
 
 ### Training results (and an honest note on scale)
 
-Real **GPU T4 x2** results — Kaggle, 37 055 s (~10.3 h wall-clock), 2026-07-14
+Real **GPU T4 ×2** results — Kaggle, ~9.8 h training, 2026-07-14
 ([full data](docs/experiment-results.md)):
 
-![training progress](assets/training_progress.png)
+![The draw cycle: non-decisive rate and Elo vs. random across the baseline, scaled, and material-assisted runs](assets/draw_cycle.png)
 
-The policy loss drops sharply as the network learns to imitate its own search.
 Two controlled experiments isolate *what* causes the draw-cycle plateau and how to fix it:
 
 | Run | Games | Sims/move | Material w | Non-decisive % | Elo vs random |
@@ -339,6 +338,10 @@ Two controlled experiments isolate *what* causes the draw-cycle plateau and how 
 | baseline | 100 | 100 | 0.00 | 100% | −21 |
 | scaled (10×) | 1 000 | 160 | 0.00 | 92% | −7 |
 | assisted | 100 | 100 | 0.30 | **70%** | **+28** |
+
+The policy loss drops sharply as the network learns to imitate its own search, while
+the **value loss collapses toward zero** — the draw-cycle signature ([loss
+curves](assets/training_progress.png)).
 
 **The draw cycle is primarily a self-play signal problem, not a compute ceiling.**
 Blending `material_weight = 0.30` into self-play leaf evaluation drops the
