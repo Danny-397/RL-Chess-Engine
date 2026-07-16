@@ -326,39 +326,33 @@ fitting the data, and is the engine actually getting stronger?*
 
 ### Training results (and an honest note on scale)
 
-Below is a real **GPU (Colab)** training run — 12 iterations, ~96 self-play games:
+Real **GPU T4 x2** results — Kaggle, 37 055 s (~10.3 h wall-clock), 2026-07-14
+([full data](docs/experiment-results.md)):
 
 ![training progress](assets/training_progress.png)
 
-The **policy loss drops sharply** (4.6 → ~1.0): the network rapidly learns to imitate
-its own search — clear evidence the RL machinery works. But, being honest about what
-the numbers show:
+The policy loss drops sharply as the network learns to imitate its own search.
+Two controlled experiments isolate *what* causes the draw-cycle plateau and how to fix it:
 
-1. The **value loss collapses toward zero**, and
-2. the engine still only **draws the random baseline** (it went +0 =8 across the last
-   eval — the small Elo wiggle is just one game's noise, not a real strength gain).
+| Run | Games | Sims/move | Material w | Non-decisive % | Elo vs random |
+|---|---|---|---|---|---|
+| baseline | 100 | 100 | 0.00 | 100% | −21 |
+| scaled (10×) | 1 000 | 160 | 0.00 | 92% | −7 |
+| assisted | 100 | 100 | 0.30 | **70%** | **+28** |
 
-Both have the same cause — a **draw cycle**. A still-weak network can't *convert*, so
-its self-play games run long and end in draws; the value target is therefore almost
-always `0`, the value head learns only to predict "even," and the search stays weak.
-Escaping it needs **far more self-play than a short run provides** — AlphaZero used
-*millions* of games; this run played under a hundred. The learning *mechanism* is
-correct and visible; reaching strength is a compute story, not an algorithm one.
+**The draw cycle is primarily a self-play signal problem, not a compute ceiling.**
+Blending `material_weight = 0.30` into self-play leaf evaluation drops the
+non-decisive rate from 100% to 70% and flips Elo from −21 to +28 — at the
+*same* baseline compute budget. Both effects compound (scaled + assisted would go further).
+The `config.py` default is now `0.30`; see [docs/technical-report.md §5.3](docs/technical-report.md)
+for the full analysis and [docs/experiment-results.md](docs/experiment-results.md) for all numbers.
 
 > This is exactly why the **live demo plays via the classical alpha-beta engine** — it
 > gives a genuinely strong opponent today, while the neural network above remains the
 > from-scratch *learning* project.
 
-**To train a genuinely strong engine**, run on a GPU with more self-play. A ready-made
-Colab notebook does exactly this on free, dedicated compute (so it won't crash from a
-laptop's memory pressure or stall when the machine sleeps):
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Danny-397/RL-Chess-Engine/blob/main/notebooks/train_on_colab.ipynb)
-
-It clones the repo, trains with deeper search and more games per iteration, plots the
-learning curves, measures Elo vs. random, and lets you download the trained checkpoint to
-drop in as `checkpoints/example_checkpoint.pt`. The learning machinery here is correct and
-complete — the limiting factor is raw compute, not the algorithm.
+**To reproduce**, run `python run_experiment.py --device cuda` (all three stages, resumable).
+A ready-made Kaggle notebook is included in `notebooks/`.
 
 ---
 
@@ -469,7 +463,7 @@ this one ran into, and how they were solved:
 
 ## References
 
-- Silver et al., *“A general reinforcement learning algorithm that masters chess,
-  shogi, and Go through self-play”*, Science 2018 (AlphaZero).
-- Silver et al., *“Mastering the game of Go without human knowledge”*, Nature 2017
+- Silver et al., *"A general reinforcement learning algorithm that masters chess,
+  shogi, and Go through self-play"*, Science 2018 (AlphaZero).
+- Silver et al., *"Mastering the game of Go without human knowledge"*, Nature 2017
   (AlphaGo Zero).
