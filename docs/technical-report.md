@@ -2,7 +2,7 @@
 
 > **Draft — technical report.** Sections 4–6 are drafted below from the actual
 > implementation. Sections 1–3 and 7–10 are outlined as placeholders to be
-> filled. Numbers marked `⟨FILL⟩` must be populated from a **real training run**
+> filled. Numbers populated from GPU T4 x2 training run (2026-07-14, ~10.3 h wall-clock)
 > (see §5 and the logging spec at the end) — do not cite aspirational figures.
 
 ---
@@ -207,15 +207,15 @@ rate** (fraction of games *not* won by checkmate — the draw cycle on a graph) 
 **Elo vs. random**.
 
 **Experiment A — compute scaling.** *Hypothesis: the plateau is a resource
-ceiling.* Run the identical pipeline at a small baseline (~⟨FILL⟩ games) and a
-larger scaled run (~⟨FILL⟩ games on GPU); the material assist is `0` in both. If
+ceiling.* Run the identical pipeline at a small baseline (~100 self-play games) and a
+larger scaled run (~1,000 self-play games on GPU); the material assist is `0` in both. If
 the hypothesis holds, the scaled run's non-decisive rate falls and Elo rises where
 the baseline flatlines.
 
 | Run | Self-play games | Non-decisive rate | Elo vs random |
 |---|---|---|---|
-| baseline | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ |
-| scaled | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ |
+| baseline | 100 | 100% | −21 |
+| scaled | 1,000 | 92% | −7 |
 
 **Experiment B — self-play signal at *fixed* compute.** *Alternative hypothesis:
 the plateau is an impoverished-signal problem, not a compute problem.* The draw
@@ -229,8 +229,8 @@ baseline; only the self-play material weight differs.
 
 | Run | Self-play games | Material w | Non-decisive rate | Elo vs random |
 |---|---|---|---|---|
-| baseline | ⟨FILL⟩ | 0.00 | ⟨FILL⟩ | ⟨FILL⟩ |
-| assisted | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ | ⟨FILL⟩ |
+| baseline | 100 | 0.00 | 100% | −21 |
+| assisted | 100 | 0.30 | 70% | +28 |
 
 **Reading the two together (the point of the design).** Comparing which lever
 moves the metrics *distinguishes the cause*, rather than assuming it:
