@@ -38,12 +38,41 @@ A value head that always says "even" can't tell the search that being up a queen
 is *good*, so the search never tries to convert, so the games stay drawn. A
 self-reinforcing trap. I named it the **draw cycle**.
 
-The way out isn't a code fix — it's *scale*. AlphaZero played tens of millions of
-games. My laptop played under a hundred. The algorithm was correct; the limiting
-resource was compute I didn't have. Learning to tell the difference between "my
-code is wrong" and "my code is right but under-resourced" was, weirdly, the most
-important thing this project taught me. They look identical from the outside. Only
-the logging told them apart.
+## The assumption I almost shipped — and the experiment that corrected it
+
+My first instinct was the comfortable one: *it's just compute.* AlphaZero played
+tens of millions of games; my laptop played under a hundred. The algorithm is
+correct, I told myself, I simply don't have the hardware. It's a tidy story, and
+it let me off the hook.
+
+But it was an *assumption*, and I'd just spent days learning how dangerous it is to
+assume instead of measure. "My code is wrong" and "my code is right but
+under-resourced" look identical from the outside — the only thing that ever told
+them apart in this project was instrumentation. So instead of asserting the compute
+story, I decided to **test** it. I rented a GPU and ran two controlled experiments,
+each holding the code fixed and changing exactly one thing:
+
+- **Experiment A — more compute.** I scaled self-play 10× (100 → 1,000 games).
+  Elo vs. random rose a little (−21 → −7) and a few more games ended in checkmate,
+  but the plateau held. Compute helped — it did not break the cycle.
+- **Experiment B — a better signal, at the *same* compute.** If the real problem
+  was that the value head only ever saw draws, then the fix was to make self-play
+  produce *decisive* games. I blended a small material term into the search's leaf
+  evaluation during self-play (`material_weight = 0.30`) so it would actually
+  convert advantages. At the same compute as the baseline, the non-decisive rate
+  fell from 100% to 70% and Elo flipped from −21 to **+28** — the engine started
+  beating random.
+
+So the boring explanation was only half right. Compute mattered a little; the
+*quality of the self-play signal* mattered more, and it was far cheaper to fix.
+The draw cycle wasn't primarily a hardware ceiling — it was the value head starving
+for something other than draws to learn from, and I could feed it that without a
+bigger machine. `material_weight = 0.30` is now the default in the engine.
+
+The real lesson wasn't about chess. It was that the most convincing-sounding
+explanation — the one that happens to require nothing of you — is exactly the one
+worth testing first. Running the experiment turned a plausible excuse into an
+actual finding, and the finding was more interesting than the excuse.
 
 ## The decision I'm most proud of
 
@@ -83,10 +112,12 @@ itself is worse than one that's honest about its limits.
 
 ## What I'd do differently
 
-Rent a GPU *first*, next time, before drawing conclusions about strength — I spent
-a lot of energy debugging a "weakness" that was really just a compute ceiling. I'd
+Rent a GPU *earlier*, next time — not because compute was the answer (the
+experiments showed it mostly wasn't), but because I could have *run the experiment
+that told me so* weeks sooner instead of sitting with an untested assumption. I'd
 also add move-history planes to the board encoding (real AlphaZero uses them to
-handle repetitions), which might have softened the draw cycle on its own.
+handle repetitions), which is my leading suspect for a further piece of the draw
+cycle and the next experiment I'd run.
 
 ## What I actually learned
 
@@ -95,8 +126,12 @@ handle repetitions), which might have softened the draw cycle on its own.
 - That the subtle bugs (a value sign flipped in the wrong place, the board not
   mirrored for Black) are silent — they don't crash, they just quietly stop the
   thing from learning. That's why I wrote tests for exactly those.
+- That the explanation which asks nothing of you is the one to test first. "It just
+  needs more compute" was believable, self-flattering, and — when I actually
+  measured it — only half the story. The controlled experiment beat the assumption.
 - That "it didn't reach grandmaster strength" and "the project failed" are not the
-  same statement. The learning worked and is visible; strength is a compute story.
+  same statement. The learning worked and is visible; strength is a separate story
+  about compute *and* signal quality.
 - That the honest version of a project — the one that says what works, what
   doesn't, and why — is more interesting than a version that pretends everything
   went to plan. It certainly taught me more.

@@ -10,6 +10,14 @@
 <meta property="og:description" content="Play an AlphaZero-style RL chess engine on a hand-made wooden board." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://rlchess.xyz/" />
+<meta property="og:image" content="https://rlchess.xyz/static/screenshot_play.png" />
+<meta property="og:image:width" content="2648" />
+<meta property="og:image:height" content="1612" />
+<meta property="og:image:alt" content="Playing the RL chess engine on a wooden board, with a live evaluation bar and the engine's recommended moves." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="RL-Chess-Engine — a chess engine that teaches itself" />
+<meta name="twitter:description" content="Play an AlphaZero-style RL chess engine on a hand-made wooden board." />
+<meta name="twitter:image" content="https://rlchess.xyz/static/screenshot_play.png" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='20'%20fill='%23d4a24c'/%3E%3Ctext%20x='50'%20y='52'%20font-size='72'%20text-anchor='middle'%20dominant-baseline='central'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -274,6 +282,7 @@
   <nav>
     <button data-tab="home" class="active">Home</button>
     <button data-tab="play">Play</button>
+    <button data-tab="findings">Findings</button>
     <button data-tab="learn">How&nbsp;it&nbsp;works</button>
   </nav>
 </header>
@@ -300,6 +309,15 @@
         small tactical search so it plays a genuinely solid game — switch to the raw net anytime to meet the
         learning project on its own. See
         <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
+    </div>
+
+    <div class="card" style="border-left:4px solid var(--gold); max-width:760px; margin:4px auto 0; text-align:left;">
+      <h3 style="color:var(--gold); margin:0 0 6px;">Headline result — the “draw cycle”</h3>
+      <p style="margin:0; color:var(--ink);">The engine kept drawing even when it was winning. A controlled
+        experiment showed this wasn’t mainly a compute limit: giving self-play a better signal
+        (<code>material_weight&nbsp;=&nbsp;0.30</code>) flipped its Elo-vs-random from <strong>−21 to +28</strong>
+        at the <em>same</em> compute.
+        <button class="btn ghost" data-goto="findings" style="padding:5px 12px; margin-left:6px;">See the experiment →</button></p>
     </div>
 
     <div class="features">
@@ -438,6 +456,66 @@
     </div>
   </section>
 
+  <!-- ===================== FINDINGS ===================== -->
+  <section id="findings" class="view">
+    <div class="prose">
+      <h1 class="serif" style="font-size:40px;margin:6px 0;">What I found</h1>
+      <p class="muted">The most interesting part wasn’t building the engine — it was diagnosing why it
+        wouldn’t win. This page is that experiment and its result.</p>
+
+      <div class="card" style="border-left:4px solid var(--gold); margin:18px 0;">
+        <h3 style="color:var(--gold); margin:0 0 8px;">The “draw cycle”</h3>
+        <p style="margin:0;">My self-taught engine could win material but not <em>convert</em> it — it shuffled
+          winning positions into draws by repetition, and drew even a random-move opponent about half the time.
+          The cause: in self-play almost every game ended in a draw, so the network’s value head only ever learned
+          “the position is even.” It never learned that being up a queen is <em>good</em>, so the search never
+          tried to convert — a self-reinforcing trap.</p>
+      </div>
+
+      <h2>The experiment</h2>
+      <p>The comfortable explanation was “it just needs more compute.” Rather than assume, I tested it — two
+        controlled runs on a GPU (Kaggle, 2×T4, ~9.8 h), each holding the code fixed and changing exactly one thing:</p>
+      <ul>
+        <li><strong>A — more compute.</strong> Scaled self-play 10× (100 → 1,000 games).</li>
+        <li><strong>B — a better signal, same compute.</strong> Blended a small material term into self-play leaf
+          evaluation (<code>material_weight = 0.30</code>) so games ended decisively.</li>
+      </ul>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; margin:14px 0; font-variant-numeric:tabular-nums; color:var(--ink);">
+          <thead><tr style="text-align:left; color:var(--muted); border-bottom:1px solid var(--line);">
+            <th style="padding:8px 10px;">Run</th><th style="padding:8px 10px;">Games</th>
+            <th style="padding:8px 10px;">Sims/move</th><th style="padding:8px 10px;">Material&nbsp;w</th>
+            <th style="padding:8px 10px;">Non-decisive</th><th style="padding:8px 10px;">Elo vs random</th>
+          </tr></thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--line);"><td style="padding:8px 10px;">baseline</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;">0.00</td><td style="padding:8px 10px;">100%</td><td style="padding:8px 10px;">−21</td></tr>
+            <tr style="border-bottom:1px solid var(--line);"><td style="padding:8px 10px;">scaled (10×)</td><td style="padding:8px 10px;">1 000</td><td style="padding:8px 10px;">160</td><td style="padding:8px 10px;">0.00</td><td style="padding:8px 10px;">92%</td><td style="padding:8px 10px;">−7</td></tr>
+            <tr><td style="padding:8px 10px;">assisted</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;"><strong>0.30</strong></td><td style="padding:8px 10px;"><strong>70%</strong></td><td style="padding:8px 10px;"><strong>+28</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <img class="curve" src="static/draw_cycle.png" alt="Non-decisive rate and Elo vs random across the baseline, scaled, and material-assisted runs" />
+
+      <h2>The result</h2>
+      <p>The draw cycle was <strong>primarily a self-play signal problem, not a compute ceiling</strong>. Scaling
+        compute 10× barely moved the plateau (−21 → −7); a better self-play signal at the <em>same</em> compute
+        flipped Elo from <strong>−21 to +28</strong> and cut non-decisive games from 100% to 70%.
+        <code>material_weight = 0.30</code> is now the engine’s default.</p>
+      <p class="muted" style="font-size:14px;">The real lesson wasn’t about chess: the most convincing-sounding
+        explanation — the one that happens to require nothing of you — is exactly the one worth testing first.</p>
+
+      <p style="margin-top:24px;">
+        <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/reflection.md" target="_blank" rel="noopener">Read the full reflection</a>
+        &nbsp;
+        <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/technical-report.md" target="_blank" rel="noopener">Technical report</a>
+        &nbsp;
+        <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/experiment-results.md" target="_blank" rel="noopener">All the numbers</a>
+      </p>
+    </div>
+  </section>
+
   <!-- ===================== HOW IT WORKS ===================== -->
   <section id="learn" class="view">
     <div class="prose">
@@ -502,8 +580,22 @@
         <strong>classical alpha-beta engine</strong> for a tough game. The network stays the
         from-scratch learning project — the search just makes it a fair opponent today.</p>
 
+      <h2>What I built vs. what I used</h2>
+      <div class="pipeline">
+        <div class="step"><div class="n" style="font-size:16px; letter-spacing:.02em;">I wrote</div>
+          <div>The policy/value network, the MCTS (PUCT) search, the self-play &amp; training loop, the full
+            8×8×73 move encoding and board→tensor encoding, the classical alpha-beta engine, and this web UI —
+            from scratch.</div></div>
+        <div class="step"><div class="n" style="font-size:16px; letter-spacing:.02em;">I used</div>
+          <div>PyTorch (tensors/autograd), python-chess &amp; chess.js (legal-move generation, so I didn’t
+            re-implement the rules), onnxruntime-web (running my trained net in the browser), and FastAPI.
+            The <em>algorithm</em> is DeepMind’s AlphaZero; the implementation here is mine.</div></div>
+      </div>
+
       <p style="margin-top:24px;">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">Source on GitHub</a>
+        &nbsp;
+        <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/reflection.md" target="_blank" rel="noopener">Reflection</a>
         &nbsp;
         <a class="btn ghost" href="https://colab.research.google.com/github/Danny-397/RL-Chess-Engine/blob/main/notebooks/train_on_colab.ipynb" target="_blank" rel="noopener">Train it on Colab</a>
       </p>
@@ -654,11 +746,11 @@ function bottomColor() { return orientation === 'white' ? 'w' : 'b'; }   // colo
 function refColor() { return couchPlay() ? bottomColor() : humanColor; } // the "near" player for clocks/material
 function autoFlipOn() { return couchPlay() && document.getElementById('autoFlip').checked; }
 
+// Piece art is self-hosted (the freely-licensed Cburnett set, in static/pieces/),
+// so the board never depends on an external image host being up.
+function pieceSrc(color, type) { return `static/pieces/${color}${type}.svg`; }
 function pieceImg(color, type) {
-  const shade = color === 'w' ? 'l' : 'd';
-  const primary = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${color}${type}.png`;
-  const fallback = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${type}${shade}t45.svg`;
-  return `<img class="piece" src="${primary}" alt="" onerror="this.onerror=null;this.src='${fallback}'">`;
+  return `<img class="piece" src="${pieceSrc(color, type)}" alt="">`;
 }
 
 function renderBoard() {
@@ -819,12 +911,9 @@ function finalizeMove(from, to, promo) {
 function openPromo(from, to) {
   pendingPromo = { from, to };
   const color = game.get(from).color;
-  document.getElementById('promoBox').innerHTML = ['q','r','b','n'].map(t => {
-    const shade = color === 'w' ? 'l' : 'd';
-    const primary = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${color}${t}.png`;
-    const fb = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${t}${shade}t45.svg`;
-    return `<img data-promo="${t}" src="${primary}" alt="${t}" onerror="this.onerror=null;this.src='${fb}'">`;
-  }).join('');
+  document.getElementById('promoBox').innerHTML = ['q','r','b','n'].map(t =>
+    `<img data-promo="${t}" src="${pieceSrc(color, t)}" alt="${t}">`
+  ).join('');
   document.getElementById('promo').classList.add('show');
 }
 function choosePromo(t) {
@@ -873,11 +962,9 @@ function squarePxSize() { return document.getElementById('board').clientWidth / 
 
 function makeGhost(sq, x, y) {
   const p = game.get(sq); if (!p) return null;
-  const shade = p.color === 'w' ? 'l' : 'd';
   const img = document.createElement('img');
   img.className = 'drag-ghost';
-  img.src = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${p.color}${p.type}.png`;
-  img.onerror = function () { this.onerror = null; this.src = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${p.type}${shade}t45.svg`; };
+  img.src = pieceSrc(p.color, p.type);
   const s = squarePxSize(); img.style.width = img.style.height = s + 'px';
   document.body.appendChild(img); moveGhost(img, x, y); return img;
 }
@@ -1013,12 +1100,7 @@ function flag() {
 
 // ----------------------------- material / captured pieces -----------------------------
 const _PVAL = { p: 1, n: 3, b: 3, r: 5, q: 9 };
-function pieceMini(color, type) {
-  const shade = color === 'w' ? 'l' : 'd';
-  const primary = `https://images.chesscomfiles.com/chess-themes/pieces/wood/150/${color}${type}.png`;
-  const fb = `https://commons.wikimedia.org/wiki/Special:FilePath/Chess_${type}${shade}t45.svg`;
-  return `<img src="${primary}" alt="" onerror="this.onerror=null;this.src='${fb}'">`;
-}
+function pieceMini(color, type) { return `<img src="${pieceSrc(color, type)}" alt="">`; }
 function renderMaterial() {
   const cnt = { w: {}, b: {} };
   game.board().forEach(row => row.forEach(c => { if (c) cnt[c.color][c.type] = (cnt[c.color][c.type] || 0) + 1; }));
