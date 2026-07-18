@@ -1,0 +1,37 @@
+name: Export ONNX model
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'checkpoints/best.pt'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch==2.3.0+cpu --index-url https://download.pytorch.org/whl/cpu
+          pip install onnxruntime numpy python-chess
+
+      - name: Export ONNX
+        run: python export_web_model.py
+
+      - name: Commit updated model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add web/static/model.onnx web/static/model_meta.json
+          git diff --staged --quiet || git commit -m "Auto-export ONNX from updated checkpoint"
+          git push
