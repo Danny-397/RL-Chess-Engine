@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'checkpoints/best.pt'
+  workflow_dispatch:
 
 jobs:
   export:
