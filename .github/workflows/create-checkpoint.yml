@@ -1,0 +1,51 @@
+name: Create minimal best.pt checkpoint
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-checkpoint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install torch==2.3.0+cpu --index-url https://download.pytorch.org/whl/cpu
+          pip install python-chess numpy
+
+      - name: Create minimal trained checkpoint
+        run: |
+          python - <<'PYEOF'
+          import sys
+          sys.path.insert(0, '.')
+          from config import Config
+          from training import train
+
+          cfg = Config()
+          cfg.training.num_iterations = 2
+          cfg.training.games_per_iteration = 3
+          cfg.training.num_self_play_workers = 1
+          cfg.mcts.num_simulations = 10
+          cfg.training.device = 'cpu'
+
+          print('Running minimal training to produce best.pt ...')
+          train(cfg)
+          print('Done - best.pt created.')
+          PYEOF
+
+      - name: Commit checkpoint
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f checkpoints/best.pt
+          git diff --staged --quiet || git commit -m "Add minimally-trained checkpoint (triggers ONNX export)"
+          git push
