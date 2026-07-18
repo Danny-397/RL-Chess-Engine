@@ -99,7 +99,6 @@ def main() -> None:
         output_names=["value"],
         dynamic_axes={"board": {0: "batch"}, "value": {0: "batch"}},
         opset_version=17,
-        dynamo=False,  # legacy TorchScript exporter (matches the value network the site expects)
     )
     print(f"exported {OUT_ONNX}  (from {ckpt})")
 
