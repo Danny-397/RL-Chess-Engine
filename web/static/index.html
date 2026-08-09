@@ -79,6 +79,15 @@
   }
   nav button:hover { color: var(--ink); background: rgba(255,255,255,.04); }
   nav button.active { color: var(--gold); background: rgba(212,162,76,.10); }
+  /* On phones the four tabs no longer fit beside the wordmark: let the header
+     wrap onto a second row instead of forcing the page wider than the screen. */
+  @media (max-width: 680px) {
+    header { flex-wrap: wrap; gap: 10px 14px; padding: 12px 16px; }
+    .brand .name { font-size: 20px; }
+    nav { margin-left: 0; width: 100%; flex-wrap: wrap; gap: 4px; }
+    nav button { padding: 7px 11px; font-size: 14px; }
+    main { padding: 20px 16px; }
+  }
 
   main { max-width: 1380px; margin: 0 auto; padding: 20px 28px; }
   .view { display: none; animation: fade .25s ease; }
