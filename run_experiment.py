@@ -198,13 +198,66 @@ def _verdict(ref: Dict, test: Dict, lever: str) -> str:
             f"(non-decisive {(-nd_drop):+.1%}, Elo {elo_gain:+.0f}) — report honestly.")
 
 
-def write_results(baseline: Dict, scaled: Dict, assisted: Dict) -> str:
-    """Write a ready-to-paste two-experiment results block and return its path.
+def _combined_section(baseline: Dict, scaled: Dict, assisted: Dict,
+                      combined: Dict | None, header: str) -> str:
+    """Experiment C's block, or a note explaining that it wasn't run."""
+    if combined is None:
+        return (
+            "\n## Experiment C — both levers together (not run)\n"
+            "A and B each moved the metrics alone, so the open question is whether "
+            "they *compound* or merely substitute. Run it with:\n"
+            "```bash\npython run_experiment.py --device cuda --run-combined\n```\n"
+        )
+
+    # Does stacking the assist on top of scaled compute beat scaled compute alone?
+    d_nd = scaled["final_non_decisive_rate"] - combined["final_non_decisive_rate"]
+    d_elo = combined["elo_vs_random"] - scaled["elo_vs_random"]
+    # ...and does it beat the assist alone?
+    over_assisted = combined["elo_vs_random"] - assisted["elo_vs_random"]
+
+    if d_elo > 0 and over_assisted > 0:
+        verdict = (f"**The levers compound.** Combining beats scaled compute alone by "
+                   f"{d_elo:+.0f} Elo and the fixed-compute assist alone by "
+                   f"{over_assisted:+.0f} Elo, with non-decisive rate down a further "
+                   f"{d_nd:.0%}. Neither lever was substituting for the other.")
+    elif d_elo <= 0 and over_assisted <= 0:
+        verdict = ("**The levers substitute.** Stacking them beats neither arm on its "
+                   "own, so the assist and extra compute were fixing the same "
+                   "bottleneck — a richer self-play signal — by different means.")
+    else:
+        better, worse = ("compute", "the assist") if d_elo <= 0 else ("the assist", "compute")
+        verdict = (f"**Partial.** The combination improves on {worse} alone but not on "
+                   f"{better} alone, so {better} is doing most of the work and the "
+                   f"second lever adds little on top.")
+
+    return f"""
+## Experiment C — both levers together
+Scaled compute *and* the self-play material assist. A and B each moved the
+metrics on their own; this arm asks whether they compound or substitute.
+
+{header}
+{_row(scaled)}
+{_row(assisted)}
+{_row(combined)}
+
+{verdict}
+"""
+
+
+def write_results(baseline: Dict, scaled: Dict, assisted: Dict,
+                  combined: Dict | None = None) -> str:
+    """Write a ready-to-paste results block and return its path.
 
     Experiment A (compute): baseline vs scaled — does *more compute* break the
     draw cycle?  Experiment B (signal, fixed compute): baseline vs assisted —
     does a richer self-play value signal break it *without* more compute?
     Reading the two together distinguishes the cause.
+
+    Experiment C (both, optional): scaled compute *and* the material assist.
+    A and B each moved the metrics on their own, which leaves the question they
+    cannot answer — whether the two levers actually compound, or whether the
+    assist just substitutes for compute and the two together buy nothing extra.
+    C is the arm that settles it.
     """
     header = ("| Run | Self-play games | MCTS sims | Self-play material w | "
               "Non-decisive rate | Checkmate rate | Eval W/D/L | Elo vs random |\n"
@@ -257,7 +310,7 @@ Does a richer self-play value signal break the draw cycle *without* more compute
 
 ## Reading the two together
 {reading}
-
+{_combined_section(baseline, scaled, assisted, combined, header)}
 Charts: `assets/term_baseline.png`, `assets/term_scaled.png`, `assets/term_assisted.png`,
 and the matching `assets/progress_*.png`.
 Raw CSVs: `experiment_out/term_baseline.csv`, `term_scaled.csv`, `term_assisted.csv`.
@@ -292,6 +345,10 @@ def main() -> None:
     p.add_argument("--assist-weight", type=float, default=0.30,
                    help="self-play material blend for the fixed-compute ablation "
                         "(0 = off; the baseline always uses 0).")
+    p.add_argument("--run-combined", action="store_true",
+                   help="Also run Experiment C: scaled compute WITH the material "
+                        "assist, to test whether the two levers compound. Costs "
+                        "roughly as much as the scaled stage again.")
     p.add_argument("--skip-assisted", action="store_true",
                    help="run only Experiment A (compute scaling), skip the ablation.")
     # eval knobs
@@ -335,6 +392,14 @@ def main() -> None:
         eval_games=args.eval_games, eval_sims=args.eval_sims,
         material_weight=args.assist_weight)
 
+    # Experiment C: scaled compute AND the assist — the only arm that can tell
+    # whether the two levers compound or merely substitute for each other.
+    combined_cfg = build_config(
+        args.device, args.scaled_iters, args.scaled_games, args.scaled_sims,
+        args.workers, eval_every=max(1, args.scaled_iters // 5),
+        eval_games=args.eval_games, eval_sims=args.eval_sims,
+        material_weight=args.assist_weight)
+
     baseline = run_stage("baseline", baseline_cfg, args.eval_games, args.eval_sims)
     scaled = run_stage("scaled", scaled_cfg, args.eval_games, args.eval_sims)
     if args.skip_assisted:
@@ -343,12 +408,16 @@ def main() -> None:
     else:
         assisted = run_stage("assisted", assisted_cfg, args.eval_games, args.eval_sims)
 
-    results_path = write_results(baseline, scaled, assisted)
+    combined = None
+    if args.run_combined:
+        combined = run_stage("combined", combined_cfg, args.eval_games, args.eval_sims)
+
+    results_path = write_results(baseline, scaled, assisted, combined)
 
     print("\n" + "=" * 68)
     print("EXPERIMENT COMPLETE")
     print("=" * 68)
-    for m in (baseline, scaled, assisted):
+    for m in [x for x in (baseline, scaled, assisted, combined) if x is not None]:
         print(f"{m['name']:>20}: non-decisive {m['final_non_decisive_rate']:.0%}, "
               f"Elo {m['elo_vs_random']:+.0f}, "
               f"material_w {m.get('material_weight', 0.0):.2f}, "
