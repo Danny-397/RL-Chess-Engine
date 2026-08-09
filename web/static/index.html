@@ -54,6 +54,9 @@
     min-height: 100vh;
   }
   a { color: var(--gold); text-decoration: none; }
+  /* Links sitting inside a paragraph need more than colour to be identifiable;
+     scoped to prose so nav tabs and .btn anchors keep their button styling. */
+  p a:not(.btn) { text-decoration: underline; text-underline-offset: 2px; }
   a:hover { text-decoration: underline; }
   .serif { font-family: "Cormorant Garamond", Georgia, serif; }
 
