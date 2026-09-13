@@ -21,9 +21,9 @@ A clean, fully-documented implementation of an **AlphaZero-style reinforcement
 learning chess engine**, written from scratch in **Python + PyTorch**.
 
 The engine learns to play chess **with zero human knowledge** beyond the rules:
-it starts from random weights and improves purely by playing millions of moves
-against itself. The same three ideas that powered DeepMind's AlphaZero are all
-here, implemented in a way meant to be *read and understood*:
+it starts from random weights and improves purely by playing against itself.
+The same three ideas that powered DeepMind's AlphaZero are all here, implemented
+in a way meant to be *read and understood*:
 
 1. A **deep residual neural network** that looks at a position and outputs both a
    move-preference (**policy**) and an estimate of who is winning (**value**).
