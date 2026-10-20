@@ -26,9 +26,19 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 
 import numpy as np
 import torch
+
+# torch's ONNX exporter prints progress with a check-mark character. On a
+# Windows console defaulting to cp1252 that raises UnicodeEncodeError mid-export
+# and kills the script, so widen stdout/stderr before any of it runs.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):  # already utf-8, or not a real stream
+        pass
 
 from config import Config
 from training import load_checkpoint
@@ -99,6 +109,12 @@ def main() -> None:
         output_names=["value"],
         dynamic_axes={"board": {0: "batch"}, "value": {0: "batch"}},
         opset_version=17,
+        # Keep the weights INSIDE the .onnx file. The torch.export-based
+        # exporter (default since 2.9) otherwise writes them to a sibling
+        # model.onnx.data, which turned a 1.2MB self-contained model into an
+        # 11KB graph the browser cannot run -- the page fetches
+        # static/model.onnx and nothing else.
+        external_data=False,
     )
     print(f"exported {OUT_ONNX}  (from {ckpt})")
 
