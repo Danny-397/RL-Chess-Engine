@@ -1,0 +1,37 @@
+# Lets GitHub show a "Cite this repository" button and gives the project a
+# stable, machine-readable citation. It is also what Zenodo reads when a release
+# is archived to mint a DOI.
+#
+# The name matches the other CITATION.cff files in these projects. The site uses
+# "Dan" as a display byline, which is a separate thing from a citation name.
+cff-version: 1.2.0
+title: "RL-Chess-Engine — an AlphaZero-style chess engine built from scratch, and what it failed to learn"
+message: "If you use this software or its findings, please cite it as below."
+type: software
+authors:
+  - given-names: Daniel
+    family-names: Lichtenberger
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+repository-code: "https://github.com/Danny-397/RL-Chess-Engine"
+url: "https://rlchess.xyz"
+abstract: >-
+  A from-scratch AlphaZero-style chess engine: a residual policy-value network,
+  Monte Carlo tree search with PUCT, the full 4672-move encoding, and a
+  self-play training loop, with strength measured as Elo against fixed
+  opponents and colours alternated so first-move advantage cannot be mistaken
+  for learning. The honest result is the point of the write-up: at the compute
+  available the agent remains weak, and the experiments separate the two
+  candidate causes — insufficient search and an impoverished self-play signal —
+  finding the signal the cheaper lever. A "draw cycle" in which self-play
+  collapses into non-decisive games is reported rather than tuned away. The
+  live demo deliberately plays a torch-free alpha-beta searcher and says so, so
+  the deployed site does not imply the network is stronger than it is.
+keywords:
+  - reinforcement learning
+  - monte carlo tree search
+  - self-play
+  - alphazero
+  - chess engine
+  - negative results
+license: MIT
+date-released: "2026-10-20"
