@@ -324,7 +324,7 @@
         So the default opponent, <strong>“Neural&nbsp;net&nbsp;+&nbsp;search”</strong>, pairs the network with a
         small tactical search so it plays a genuinely solid game — switch to the raw net anytime to meet the
         learning project on its own. See
-        <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
+        <a href="#learn" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>.</p>
     </div>
 
     <div class="card" style="border-left:4px solid var(--gold); max-width:760px; margin:4px auto 0; text-align:left;">
@@ -363,7 +363,7 @@
            the board. Most engines never let you see <em>why</em>.</p></div>
       <div class="card"><h3>Built from scratch to be understood</h3>
         <p>The network, the search and the self-play loop are all written from scratch and explained in
-           plain English on the <a href="#" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>
+           plain English on the <a href="#learn" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>
            page. It's a learning tool, not just a player.</p></div>
       <div class="card"><h3>Watch it play itself</h3>
         <p>Hit <strong>“Watch self-play”</strong> and the engine reasons through a whole game on its own —
@@ -546,11 +546,13 @@
         <ol style="margin:0 0 10px; padding-left:20px;">
           <li><strong>Guess.</strong> A neural network looks at the board and guesses the best moves and who's winning.</li>
           <li><strong>Think.</strong> A search tries out those moves many moves deep to find something better than the first guess.</li>
-          <li><strong>Play itself.</strong> It plays thousands of games against itself using that search.</li>
+          <li><strong>Play itself.</strong> It plays games against itself using that search.</li>
           <li><strong>Learn.</strong> Whoever won, it nudges the network toward the moves that led to wins — so next time the <em>guess</em> is already smarter.</li>
         </ol>
-        <p style="margin:0;">Repeat millions of times and the engine bootstraps itself from random moves to real chess —
-          <strong>with zero human strategy added.</strong> Everything below is just that loop, in detail.</p>
+        <p style="margin:0;">Run that loop long enough and an engine bootstraps itself from random moves to real chess —
+          <strong>with zero human strategy added.</strong> DeepMind ran it for tens of millions of games; this project's
+          longest run was 1,000, which is why the raw network is still weak (see <a href="#findings" onclick="showTab('findings');return false;">Findings</a>).
+          Everything below is just that loop, in detail.</p>
       </div>
 
       <h2>1 · One network, two heads <span class="muted" style="font-size:15px;">— the "guess"</span></h2>
@@ -620,17 +622,35 @@
 </main>
 
 <footer>Built from scratch · Python · PyTorch · python-chess &nbsp;·&nbsp;
-  <a href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">GitHub</a></footer>
+  <a href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">GitHub</a>
+  &nbsp;·&nbsp; Built by <a href="https://danny-397.github.io/">Dan Lichtenberger</a></footer>
 
 <script>
 // ----------------------------- tab switching -----------------------------
 const views = document.querySelectorAll('.view');
 const navBtns = document.querySelectorAll('nav button');
-function showTab(tab) {
+// Tabs are deep-linkable: rlchess.xyz/#play, #findings and #learn open that tab
+// directly, so the portfolio and the technical report can link straight to it,
+// and the browser's back button moves between tabs.
+const TAB_IDS = ['home', 'play', 'findings', 'learn'];
+function showTab(tab, opts = {}) {
+  if (!TAB_IDS.includes(tab)) tab = 'home';
   views.forEach(v => v.classList.toggle('active', v.id === tab));
-  navBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  navBtns.forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
+  if (!opts.fromHash) {
+    const hash = tab === 'home' ? location.pathname + location.search : '#' + tab;
+    if (opts.replace) history.replaceState(null, '', hash);
+    else if (('#' + tab) !== location.hash) history.pushState(null, '', hash);
+  }
+  if (!opts.noScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+window.addEventListener('popstate', () => showTab(location.hash.slice(1) || 'home', { fromHash: true }));
+window.addEventListener('hashchange', () => showTab(location.hash.slice(1) || 'home', { fromHash: true }));
+if (location.hash) showTab(location.hash.slice(1), { replace: true, noScroll: true });
 navBtns.forEach(b => b.onclick = () => showTab(b.dataset.tab));
 document.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => showTab(b.dataset.goto));
 
