@@ -47,6 +47,16 @@
     --lastmv: rgba(212,162,76,.28);
     --good: #6fae5f;
     --bad: #c5564b;
+    /* scale */
+    --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+    --r-sm: 8px; --r-md: 12px;
+    --ease: cubic-bezier(.2,.7,.2,1);
+    --fast: 150ms;
+  }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important; scroll-behavior: auto !important; }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -74,15 +84,16 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
   .brand .logo {
-    width: 30px; height: 30px; border-radius: 7px;
-    background: linear-gradient(135deg, var(--gold), var(--gold-soft));
+    width: 30px; height: 30px; border-radius: var(--r-sm);
+    background: var(--gold);
     display: grid; place-items: center; color: #2a1d0c; font-size: 18px;
   }
   .brand .name { font-family: "Cormorant Garamond", serif; font-size: 23px; letter-spacing: .3px; }
   nav { display: flex; gap: 6px; margin-left: auto; }
   nav button {
     background: transparent; color: var(--muted); border: 0; cursor: pointer;
-    font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px;
+    font: inherit; font-weight: 600; padding: 8px 14px; border-radius: var(--r-sm);
+    transition: color var(--fast) var(--ease), background-color var(--fast) var(--ease);
   }
   nav button:hover { color: var(--ink); background: rgba(255,255,255,.04); }
   nav button.active { color: var(--gold); background: rgba(212,162,76,.10); }
@@ -102,22 +113,55 @@
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
 
   /* ---- landing ---- */
-  .hero { text-align: center; padding: 56px 16px 30px; }
-  .hero h1 { font-family: "Cormorant Garamond", serif; font-size: 58px; line-height: 1.05; margin: 0 0 14px; }
+  .hero { text-align: center; padding: var(--s-8) var(--s-4) var(--s-6); }
+  .hero h1 { font-family: "Cormorant Garamond", serif; font-size: clamp(40px, 5.6vw, 60px); line-height: 1.05; margin: 0 0 var(--s-4); letter-spacing: -.01em; }
   .hero h1 .accent { color: var(--gold); }
-  .hero p.lead { font-size: 19px; color: var(--muted); max-width: 680px; margin: 0 auto 26px; }
-  .cta { display: inline-flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto var(--s-5); }
+  .cta { display: inline-flex; gap: var(--s-3); flex-wrap: wrap; justify-content: center; }
   .btn {
     font: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent;
-    padding: 12px 22px; border-radius: 10px; transition: .15s;
+    padding: 12px 22px; border-radius: var(--r-sm);
+    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+                color var(--fast) var(--ease), filter var(--fast) var(--ease);
   }
+  .btn:hover { text-decoration: none; }
+  .btn.sm { padding: 6px 12px; font-size: 14px; }
   .btn.primary { background: var(--gold); color: #241803; }
   .btn.primary:hover { filter: brightness(1.07); }
   .btn.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
   .btn.ghost:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-row { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-5); }
 
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 18px; margin-top: 46px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  /* Product preview: a real capture of the Play tab, linking straight to it. */
+  .preview { display: block; max-width: 1040px; margin: 0 auto var(--s-7); border-radius: var(--r-md);
+    border: 1px solid var(--line); overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    transition: border-color var(--fast) var(--ease); }
+  .preview:hover { border-color: var(--gold-soft); }
+  .preview img { display: block; width: 100%; height: auto; }
+  .preview-caption { text-align: center; color: var(--muted); font-size: 14px; margin: calc(-1 * var(--s-6)) 0 var(--s-7); }
+
+  /* Callout: the one gold-ruled card per page that carries the key result. */
+  .callout { border-left: 4px solid var(--gold); margin: var(--s-5) 0; }
+  .callout.centered { max-width: 760px; margin: 0 auto; }
+  .callout h3 { color: var(--gold); margin: 0 0 var(--s-2); }
+  .callout p { margin: 0; color: var(--ink); }
+  .callout ol { margin: var(--s-3) 0; padding-left: 20px; }
+  .callout p + p { margin-top: var(--s-3); }
+
+  /* Elo-vs-random for the three runs: a diverging bar around zero. */
+  .elo { list-style: none; margin: var(--s-5) 0 var(--s-1); padding: 0; display: grid; gap: var(--s-2); }
+  .elo li { display: grid; grid-template-columns: 116px 1fr 44px; align-items: center; gap: var(--s-3); font-size: 14px; }
+  .elo .run { color: var(--muted); }
+  .elo .track { position: relative; height: 10px; }
+  .elo .track::before { content: ""; position: absolute; left: 50%; top: -4px; bottom: -4px; width: 1px; background: var(--line); }
+  .elo .bar { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+  .elo .bar.neg { right: 50%; background: rgba(169,158,140,.45); }
+  .elo .bar.pos { left: 50%; background: var(--gold); }
+  .elo .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .elo-note { font-size: 13px; color: var(--muted); margin: var(--s-2) 0 0; }
+
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: var(--s-4); margin-top: var(--s-7); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-5); }
   /* Hero details: one solid action, one secondary, and a quiet text link. */
   .eyebrow { color: var(--gold); font-weight: 600; font-size: 15px; margin: 0 0 12px; }
   .text-link { display: inline-flex; align-items: center; gap: 4px; padding: 10px 8px;
@@ -131,8 +175,11 @@
   .card h3 { margin: 6px 0 8px; font-size: 18px; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
   .card .ico { font-size: 24px; }
-  .section-title { font-family: "Cormorant Garamond", serif; font-size: 34px; margin: 8px 0 4px; }
+  .section-title { font-family: "Cormorant Garamond", serif; font-size: 34px; margin: var(--s-8) 0 var(--s-1); }
+  .section-lede { max-width: 720px; }
+  .page-title { font-size: 40px; margin: 6px 0; }
   .muted { color: var(--muted); }
+  .small { font-size: 14px; }
 
   /* ---- play layout ---- */
   .play-wrap { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
@@ -196,8 +243,10 @@
   @media (max-width: 600px) {
     .board-frame { --size: min(calc(100vw - 92px), calc(100vh - 150px)); }
   }
-  .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
-  .pcard h4 { margin: 0 0 12px; font-size: 12px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-4) 18px; }
+  .pcard h4 { margin: 0 0 var(--s-3); font-size: 14px; font-weight: 600; color: var(--muted); }
+  .pcard .fine { font-size: 12px; margin: 10px 0 0; }
+  .pcard .fine.gold { color: var(--gold); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
   .controls .btn { padding: 9px 14px; }
   .toggle { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -288,9 +337,9 @@
   .banner { display: none; align-items: center; justify-content: space-between; gap: 12px;
       padding: 12px 16px; border-radius: 12px; font-weight: 700; margin-bottom: 4px; }
   .banner.show { display: flex; }
-  .banner.win { background: linear-gradient(90deg,#3a6b2e,#244d1b); }
-  .banner.loss { background: linear-gradient(90deg,#7f2a24,#5a1c18); }
-  .banner.draw { background: linear-gradient(90deg,#4a4036,#2c2620); }
+  .banner.win { background: #2f5c25; }
+  .banner.loss { background: #6e241f; }
+  .banner.draw { background: #3b332b; }
   .banner .btn { background: rgba(255,255,255,.18); color: #fff; }
 
   /* ---- how-it-works ---- */
@@ -304,8 +353,24 @@
   .pipeline { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 14px; margin: 16px 0; }
   .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
   .step .n { color: var(--gold); font-weight: 700; font-family: "Cormorant Garamond",serif; font-size: 22px; }
-  .curve { width: 100%; border-radius: 12px; border: 1px solid var(--line); margin-top: 10px; background: #fff; }
-  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 30px; border-top: 1px solid var(--line); margin-top: 40px; }
+  .step .n.label { font-size: 16px; letter-spacing: .02em; }
+  .prose h2 .aside { font-family: Inter, system-ui, sans-serif; font-size: 15px; font-weight: 400; color: var(--muted); }
+  .curve { width: 100%; border-radius: var(--r-md); border: 1px solid var(--line); margin-top: 10px; background: #fff; }
+  .table-wrap { overflow-x: auto; }
+  .data-table { width: 100%; border-collapse: collapse; margin: 14px 0; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .data-table th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); }
+  .data-table th, .data-table td { padding: 8px 10px; }
+  .data-table tbody tr + tr td { border-top: 1px solid var(--line); }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: var(--s-6); border-top: 1px solid var(--line); margin-top: var(--s-7); }
+
+  /* Phones: tighter hero rhythm so the primary action sits in the first screen. */
+  @media (max-width: 600px) {
+    .hero { padding: var(--s-6) 0 var(--s-5); }
+    .hero p.lead { font-size: 17px; }
+    .cta .btn { flex: 1 1 100%; }
+    .preview-caption { margin-top: calc(-1 * var(--s-7) + var(--s-3)); }
+    .elo li { grid-template-columns: 92px 1fr 40px; gap: var(--s-2); font-size: 13px; }
+  }
 </style>
 </head>
 <body>
@@ -326,9 +391,8 @@
       <p class="eyebrow">A reinforcement-learning project</p>
       <h1 class="serif">A chess engine that <span class="accent">teaches itself</span></h1>
       <p class="lead">An <strong>AlphaZero-style reinforcement-learning</strong> system, built from scratch
-        in Python &amp; PyTorch — a neural network (policy + value) guided by Monte-Carlo Tree Search that
-        learns purely by playing itself. This site showcases that project: <em>read how it learns, watch
-        it self-play, and play a game yourself.</em></p>
+        in Python &amp; PyTorch: a policy-and-value network, guided by Monte-Carlo Tree Search, that
+        learns purely by playing itself.</p>
       <div class="cta">
         <button class="btn primary" data-goto="play">Play a game</button>
         <button class="btn ghost" data-goto="learn">See how it learns</button>
@@ -341,13 +405,24 @@
         <a href="#learn" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a></p>
     </div>
 
-    <div class="card" style="border-left:4px solid var(--gold); max-width:760px; margin:4px auto 0; text-align:left;">
-      <h3 style="color:var(--gold); margin:0 0 6px;">Headline result — the “draw cycle”</h3>
-      <p style="margin:0; color:var(--ink);">The engine kept drawing even when it was winning. A controlled
-        experiment showed this wasn’t mainly a compute limit: giving self-play a better signal
-        (<code>material_weight&nbsp;=&nbsp;0.30</code>) flipped its Elo-vs-random from <strong>−21 to +28</strong>
-        at the <em>same</em> compute.
-        <button class="btn ghost" data-goto="findings" style="padding:5px 12px; margin-left:6px;">See the experiment →</button></p>
+    <a class="preview" href="#play" aria-label="Open the Play tab">
+      <img src="static/play_preview.webp" width="1600" height="982" decoding="async"
+           alt="The Play tab mid-game: the engine's top three recommended moves with evaluations, the move list, a vertical evaluation bar beside a wooden board, and the game controls." />
+    </a>
+    <p class="preview-caption">The Play tab, captured from this site: the engine's live recommendations, evaluation bar and opening name.</p>
+
+    <div class="card callout centered">
+      <h3>Headline result: the “draw cycle”</h3>
+      <p>The engine kept drawing even when it was winning. A controlled experiment showed this wasn’t
+        mainly a compute limit: giving self-play a better signal (<code>material_weight&nbsp;=&nbsp;0.30</code>)
+        flipped its Elo-vs-random from <strong>−21 to +28</strong> at the <em>same</em> compute.</p>
+      <ol class="elo" aria-label="Elo versus a random-move opponent, by training run">
+        <li><span class="run">Baseline</span><span class="track"><span class="bar neg" style="width:35%"></span></span><span class="val">−21</span></li>
+        <li><span class="run">10× compute</span><span class="track"><span class="bar neg" style="width:11.7%"></span></span><span class="val">−7</span></li>
+        <li><span class="run">Better signal</span><span class="track"><span class="bar pos" style="width:46.7%"></span></span><span class="val">+28</span></li>
+      </ol>
+      <p class="elo-note">Elo vs a random-move opponent. Scale ±30, zero at the centre line.</p>
+      <div class="btn-row"><button class="btn ghost sm" data-goto="findings">See the experiment →</button></div>
     </div>
 
     <div class="features">
@@ -365,8 +440,8 @@
            the raw network on its own, or a strong classical engine — right in your browser.</p></div>
     </div>
 
-    <h2 class="section-title" style="margin-top:64px;">How this is different from other chess engines</h2>
-    <p class="muted" style="max-width:720px;">Most chess engines are pre-built black boxes. This one is about <em>understanding</em> how an engine learns and thinks.</p>
+    <h2 class="section-title">How this is different from other chess engines</h2>
+    <p class="muted section-lede">Most chess engines are pre-built black boxes. This one is about <em>understanding</em> how an engine learns and thinks.</p>
     <div class="features plain">
       <div class="card"><h3>It learns, it isn't told</h3>
         <p>Engines like Stockfish run on decades of human-tuned chess knowledge. This one starts from
@@ -467,8 +542,8 @@
           <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
           <label class="toggle"><input type="checkbox" id="soundToggle" checked /> Sound effects</label>
           <label class="toggle" id="autoFlipRow" style="display:none;"><input type="checkbox" id="autoFlip" checked /> Flip board after each move</label>
-          <p class="muted" id="couchTip" style="display:none;font-size:12px;margin:10px 0 0;color:var(--gold);">Couch play: two people share this board, taking turns as White and Black.</p>
-          <p class="muted" style="font-size:12px;margin:10px 0 0;">Tip: right-click + drag to draw an arrow; right-click a square to mark it. Keys: N new · F flip · U undo · H hint.</p>
+          <p class="fine gold" id="couchTip" style="display:none;">Couch play: two people share this board, taking turns as White and Black.</p>
+          <p class="muted fine">Tip: right-click + drag to draw an arrow; right-click a square to mark it. Keys: N new · F flip · U undo · H hint.</p>
         </div>
 
         <div class="pcard" id="clockCard" style="display:none;">
@@ -489,13 +564,13 @@
   <!-- ===================== FINDINGS ===================== -->
   <section id="findings" class="view">
     <div class="prose">
-      <h1 class="serif" style="font-size:40px;margin:6px 0;">What I found</h1>
+      <h1 class="serif page-title">What I found</h1>
       <p class="muted">The most interesting part wasn’t building the engine — it was diagnosing why it
         wouldn’t win. This page is that experiment and its result.</p>
 
-      <div class="card" style="border-left:4px solid var(--gold); margin:18px 0;">
-        <h3 style="color:var(--gold); margin:0 0 8px;">The “draw cycle”</h3>
-        <p style="margin:0;">My self-taught engine could win material but not <em>convert</em> it — it shuffled
+      <div class="card callout">
+        <h3>The “draw cycle”</h3>
+        <p>My self-taught engine could win material but not <em>convert</em> it — it shuffled
           winning positions into draws by repetition, and drew even a random-move opponent about half the time.
           The cause: in self-play almost every game ended in a draw, so the network’s value head only ever learned
           “the position is even.” It never learned that being up a queen is <em>good</em>, so the search never
@@ -511,17 +586,17 @@
           evaluation (<code>material_weight = 0.30</code>) so games ended decisively.</li>
       </ul>
 
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; margin:14px 0; font-variant-numeric:tabular-nums; color:var(--ink);">
-          <thead><tr style="text-align:left; color:var(--muted); border-bottom:1px solid var(--line);">
-            <th style="padding:8px 10px;">Run</th><th style="padding:8px 10px;">Games</th>
-            <th style="padding:8px 10px;">Sims/move</th><th style="padding:8px 10px;">Material&nbsp;w</th>
-            <th style="padding:8px 10px;">Non-decisive</th><th style="padding:8px 10px;">Elo vs random</th>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr>
+            <th>Run</th><th>Games</th>
+            <th>Sims/move</th><th>Material&nbsp;w</th>
+            <th>Non-decisive</th><th>Elo vs random</th>
           </tr></thead>
           <tbody>
-            <tr style="border-bottom:1px solid var(--line);"><td style="padding:8px 10px;">baseline</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;">0.00</td><td style="padding:8px 10px;">100%</td><td style="padding:8px 10px;">−21</td></tr>
-            <tr style="border-bottom:1px solid var(--line);"><td style="padding:8px 10px;">scaled (10×)</td><td style="padding:8px 10px;">1 000</td><td style="padding:8px 10px;">160</td><td style="padding:8px 10px;">0.00</td><td style="padding:8px 10px;">92%</td><td style="padding:8px 10px;">−7</td></tr>
-            <tr><td style="padding:8px 10px;">assisted</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;">100</td><td style="padding:8px 10px;"><strong>0.30</strong></td><td style="padding:8px 10px;"><strong>70%</strong></td><td style="padding:8px 10px;"><strong>+28</strong></td></tr>
+            <tr><td>baseline</td><td>100</td><td>100</td><td>0.00</td><td>100%</td><td>−21</td></tr>
+            <tr><td>scaled (10×)</td><td>1 000</td><td>160</td><td>0.00</td><td>92%</td><td>−7</td></tr>
+            <tr><td>assisted</td><td>100</td><td>100</td><td><strong>0.30</strong></td><td><strong>70%</strong></td><td><strong>+28</strong></td></tr>
           </tbody>
         </table>
       </div>
@@ -533,43 +608,41 @@
         compute 10× barely moved the plateau (−21 → −7); a better self-play signal at the <em>same</em> compute
         flipped Elo from <strong>−21 to +28</strong> and cut non-decisive games from 100% to 70%.
         <code>material_weight = 0.30</code> is now the engine’s default.</p>
-      <p class="muted" style="font-size:14px;">The real lesson wasn’t about chess: the most convincing-sounding
+      <p class="muted small">The real lesson wasn’t about chess: the most convincing-sounding
         explanation — the one that happens to require nothing of you — is exactly the one worth testing first.</p>
 
-      <p style="margin-top:24px;">
+      <div class="btn-row">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/reflection.md" target="_blank" rel="noopener">Read the full reflection</a>
-        &nbsp;
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/technical-report.md" target="_blank" rel="noopener">Technical report</a>
-        &nbsp;
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/experiment-results.md" target="_blank" rel="noopener">All the numbers</a>
-      </p>
+      </div>
     </div>
   </section>
 
   <!-- ===================== HOW IT WORKS ===================== -->
   <section id="learn" class="view">
     <div class="prose">
-      <h1 class="serif" style="font-size:40px;margin:6px 0;">How the engine works</h1>
+      <h1 class="serif page-title">How the engine works</h1>
       <p class="muted">The same three ideas that powered DeepMind's AlphaZero — implemented from
         scratch to be read and understood, not just run.</p>
 
-      <div class="card" style="border-left:4px solid var(--gold); margin:18px 0;">
-        <h3 style="color:var(--gold); margin:0 0 8px;">The simple version (30 seconds)</h3>
-        <p style="margin:0 0 10px;">Nobody teaches the engine chess strategy. It only knows the rules.
+      <div class="card callout">
+        <h3>The simple version (30 seconds)</h3>
+        <p>Nobody teaches the engine chess strategy. It only knows the rules.
           It gets good through one repeating loop:</p>
-        <ol style="margin:0 0 10px; padding-left:20px;">
+        <ol>
           <li><strong>Guess.</strong> A neural network looks at the board and guesses the best moves and who's winning.</li>
           <li><strong>Think.</strong> A search tries out those moves many moves deep to find something better than the first guess.</li>
           <li><strong>Play itself.</strong> It plays games against itself using that search.</li>
           <li><strong>Learn.</strong> Whoever won, it nudges the network toward the moves that led to wins — so next time the <em>guess</em> is already smarter.</li>
         </ol>
-        <p style="margin:0;">Run that loop long enough and an engine bootstraps itself from random moves to real chess —
+        <p>Run that loop long enough and an engine bootstraps itself from random moves to real chess —
           <strong>with zero human strategy added.</strong> DeepMind ran it for tens of millions of games; this project's
           longest run was 1,000, which is why the raw network is still weak (see <a href="#findings" onclick="showTab('findings');return false;">Findings</a>).
           Everything below is just that loop, in detail.</p>
       </div>
 
-      <h2>1 · One network, two heads <span class="muted" style="font-size:15px;">— the "guess"</span></h2>
+      <h2>1 · One network, two heads <span class="aside">— the "guess"</span></h2>
       <p>A position is encoded as an <strong>18 × 8 × 8</strong> stack of planes (piece locations,
         castling rights, …), always shown from the side-to-move's perspective. A residual
         convolutional network maps it to:</p>
@@ -579,7 +652,7 @@
         <li><strong>a value</strong> in [−1, 1] — "who is winning?"</li>
       </ul>
 
-      <h2>2 · Search that thinks ahead (MCTS + PUCT) <span class="muted" style="font-size:15px;">— the "think"</span></h2>
+      <h2>2 · Search that thinks ahead (MCTS + PUCT) <span class="aside">— the "think"</span></h2>
       <p>Each move, hundreds of simulations descend a search tree, balancing what looks good now
         against what's worth exploring, using the <strong>PUCT</strong> rule:</p>
       <div class="formula">a* = argmaxₐ [ Q(s,a) + c · P(s,a) · √(Σ N(s,b)) / (1 + N(s,a)) ]</div>
@@ -587,7 +660,7 @@
         prior <code>P</code>, damped by how often a move was tried). The most-visited move is the
         search's verdict — far stronger than the raw network.</p>
 
-      <h2>3 · The self-play loop <span class="muted" style="font-size:15px;">— "play itself" &amp; "learn"</span></h2>
+      <h2>3 · The self-play loop <span class="aside">— "play itself" &amp; "learn"</span></h2>
       <div class="pipeline">
         <div class="step"><div class="n">01</div><div>Play a full game against itself, picking moves with MCTS.</div></div>
         <div class="step"><div class="n">02</div><div>Record every <em>(position, search-policy, who-won)</em> triple.</div></div>
@@ -604,7 +677,7 @@
       <p>Loss from an actual self-play run — the policy loss drops sharply as the network learns to
         imitate the search:</p>
       <img class="curve" src="static/training_progress.png" alt="training loss and Elo curves" />
-      <p class="muted" style="font-size:14px;">Honest note: reaching strong play needs far more
+      <p class="muted small">Honest note: reaching strong play needs far more
         (GPU) self-play than a laptop CPU allows — the learning machinery is correct, the limit is
         compute. So on the <strong>Play</strong> page the default opponent pairs this network with a
         small in-browser tactical search (so it never simply hangs a piece); you can switch to the
@@ -614,23 +687,21 @@
 
       <h2>What I built vs. what I used</h2>
       <div class="pipeline">
-        <div class="step"><div class="n" style="font-size:16px; letter-spacing:.02em;">I wrote</div>
+        <div class="step"><div class="n label">I wrote</div>
           <div>The policy/value network, the MCTS (PUCT) search, the self-play &amp; training loop, the full
             8×8×73 move encoding and board→tensor encoding, the classical alpha-beta engine, and this web UI —
             from scratch.</div></div>
-        <div class="step"><div class="n" style="font-size:16px; letter-spacing:.02em;">I used</div>
+        <div class="step"><div class="n label">I used</div>
           <div>PyTorch (tensors/autograd), python-chess &amp; chess.js (legal-move generation, so I didn’t
             re-implement the rules), onnxruntime-web (running my trained net in the browser), and FastAPI.
             The <em>algorithm</em> is DeepMind’s AlphaZero; the implementation here is mine.</div></div>
       </div>
 
-      <p style="margin-top:24px;">
+      <div class="btn-row">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">Source on GitHub</a>
-        &nbsp;
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/reflection.md" target="_blank" rel="noopener">Reflection</a>
-        &nbsp;
         <a class="btn ghost" href="https://colab.research.google.com/github/Danny-397/RL-Chess-Engine/blob/main/notebooks/train_on_colab.ipynb" target="_blank" rel="noopener">Train it on Colab</a>
-      </p>
+      </div>
     </div>
   </section>
 </main>
