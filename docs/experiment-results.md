@@ -234,7 +234,9 @@ draw-cycle signature (technical report §6), not a training success.*
    non-decisive rate to 70%, keeps checkmates appearing throughout training
    (19/100 aggregate), and flips Elo to **+28**. The engine beats random.
 4. **Both effects compound** ("yes | yes" in the §5.3 reading matrix): compute helps
-   *and* signal helps. A combined scaled-plus-assisted run is the natural next step.
+   *and* signal helps. A combined scaled-plus-assisted run is the natural next step;
+   it is ready to run on Kaggle as [`notebooks/experiment_c.ipynb`](../notebooks/experiment_c.ipynb)
+   (`python run_experiment.py --device cuda --only-combined`).
 5. **`material_weight = 0.30` is the recommended self-play default**, now set via
    `MCTSConfig.material_weight` and exposed as `run_experiment.py --assist-weight`.
 

@@ -198,6 +198,83 @@ def _verdict(ref: Dict, test: Dict, lever: str) -> str:
             f"(non-decisive {(-nd_drop):+.1%}, Elo {elo_gain:+.0f}) — report honestly.")
 
 
+def _combined_verdict(scaled: Dict, assisted: Dict, combined: Dict) -> str:
+    """Do the two levers compound, substitute, or does one do the work?"""
+    # Does stacking the assist on top of scaled compute beat scaled compute alone?
+    d_nd = scaled["final_non_decisive_rate"] - combined["final_non_decisive_rate"]
+    d_elo = combined["elo_vs_random"] - scaled["elo_vs_random"]
+    # ...and does it beat the assist alone?
+    over_assisted = combined["elo_vs_random"] - assisted["elo_vs_random"]
+
+    if d_elo > 0 and over_assisted > 0:
+        return (f"**The levers compound.** Combining beats scaled compute alone by "
+                f"{d_elo:+.0f} Elo and the fixed-compute assist alone by "
+                f"{over_assisted:+.0f} Elo, with non-decisive rate down a further "
+                f"{d_nd:.0%}. Neither lever was substituting for the other.")
+    if d_elo <= 0 and over_assisted <= 0:
+        return ("**The levers substitute.** Stacking them beats neither arm on its "
+                "own, so the assist and extra compute were fixing the same "
+                "bottleneck — a richer self-play signal — by different means.")
+    better, worse = ("compute", "the assist") if d_elo <= 0 else ("the assist", "compute")
+    return (f"**Partial.** The combination improves on {worse} alone but not on "
+            f"{better} alone, so {better} is doing most of the work and the "
+            f"second lever adds little on top.")
+
+
+# Experiments A and B as published in docs/experiment-results.md (Kaggle, 2×T4).
+# Only the figures that document reports are here -- its eval W/D/L and checkmate
+# rates were never written down, and are not reconstructed. --only-combined
+# compares Experiment C against these instead of re-running ~10 GPU-hours.
+PUBLISHED = {
+    "baseline": {"name": "baseline", "total_self_play_games": 100, "simulations": 100,
+                 "material_weight": 0.00, "final_non_decisive_rate": 1.00, "elo_vs_random": -21},
+    "scaled":   {"name": "scaled", "total_self_play_games": 1000, "simulations": 160,
+                 "material_weight": 0.00, "final_non_decisive_rate": 0.92, "elo_vs_random": -7},
+    "assisted": {"name": "assisted", "total_self_play_games": 100, "simulations": 100,
+                 "material_weight": 0.30, "final_non_decisive_rate": 0.70, "elo_vs_random": 28},
+}
+
+
+def write_combined_only(combined: Dict, path: str) -> str:
+    """Experiment C's own write-up, against the published A and B figures."""
+    def row(m: Dict, source: str) -> str:
+        return (f"| {m['name']} | {m['total_self_play_games']:,} | {m['simulations']} | "
+                f"{m.get('material_weight', 0.0):.2f} | {m['final_non_decisive_rate']:.0%} | "
+                f"{m['elo_vs_random']:+.0f} | {source} |")
+
+    pub = "published"
+    doc = f"""# Experiment C — scaled compute *and* the self-play material assist
+
+Experiment A (10× compute) moved Elo vs random from −21 to −7; Experiment B (a
+self-play material weight of {combined.get('material_weight', 0.0):.2f} at baseline compute)
+moved it to +28. This arm runs both at once, to test whether the two levers
+**compound** or **substitute** for each other.
+
+The baseline, scaled and assisted rows are the published figures from
+[experiment-results.md](experiment-results.md); only the combined row was run here.
+
+| Run | Total games | Sims/move | Material w | Non-decisive (final iter) | Elo vs random | Source |
+|---|---|---|---|---|---|---|
+{row(PUBLISHED['baseline'], pub)}
+{row(PUBLISHED['scaled'], pub)}
+{row(PUBLISHED['assisted'], pub)}
+{row(combined, 'this run')}
+
+{_combined_verdict(PUBLISHED['scaled'], PUBLISHED['assisted'], combined)}
+
+Combined arm detail: eval W/D/L {combined['eval_wins']}/{combined['eval_draws']}/{combined['eval_losses']}
+over {combined['eval_wins'] + combined['eval_draws'] + combined['eval_losses']} games,
+final-iteration checkmate rate {combined['final_checkmate_rate']:.0%},
+device `{combined['device']}`, {combined['train_seconds'] / 3600:.1f} h of training.
+
+Reproduce: `python run_experiment.py --device cuda --only-combined`
+"""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(doc)
+    return path
+
+
 def _combined_section(baseline: Dict, scaled: Dict, assisted: Dict,
                       combined: Dict | None, header: str) -> str:
     """Experiment C's block, or a note explaining that it wasn't run."""
@@ -209,27 +286,7 @@ def _combined_section(baseline: Dict, scaled: Dict, assisted: Dict,
             "```bash\npython run_experiment.py --device cuda --run-combined\n```\n"
         )
 
-    # Does stacking the assist on top of scaled compute beat scaled compute alone?
-    d_nd = scaled["final_non_decisive_rate"] - combined["final_non_decisive_rate"]
-    d_elo = combined["elo_vs_random"] - scaled["elo_vs_random"]
-    # ...and does it beat the assist alone?
-    over_assisted = combined["elo_vs_random"] - assisted["elo_vs_random"]
-
-    if d_elo > 0 and over_assisted > 0:
-        verdict = (f"**The levers compound.** Combining beats scaled compute alone by "
-                   f"{d_elo:+.0f} Elo and the fixed-compute assist alone by "
-                   f"{over_assisted:+.0f} Elo, with non-decisive rate down a further "
-                   f"{d_nd:.0%}. Neither lever was substituting for the other.")
-    elif d_elo <= 0 and over_assisted <= 0:
-        verdict = ("**The levers substitute.** Stacking them beats neither arm on its "
-                   "own, so the assist and extra compute were fixing the same "
-                   "bottleneck — a richer self-play signal — by different means.")
-    else:
-        better, worse = ("compute", "the assist") if d_elo <= 0 else ("the assist", "compute")
-        verdict = (f"**Partial.** The combination improves on {worse} alone but not on "
-                   f"{better} alone, so {better} is doing most of the work and the "
-                   f"second lever adds little on top.")
-
+    verdict = _combined_verdict(scaled, assisted, combined)
     return f"""
 ## Experiment C — both levers together
 Scaled compute *and* the self-play material assist. A and B each moved the
@@ -349,6 +406,10 @@ def main() -> None:
                    help="Also run Experiment C: scaled compute WITH the material "
                         "assist, to test whether the two levers compound. Costs "
                         "roughly as much as the scaled stage again.")
+    p.add_argument("--only-combined", action="store_true",
+                   help="Run ONLY Experiment C and compare it against the published "
+                        "A/B figures (docs/experiment-c-results.md). About half the "
+                        "GPU time of --run-combined, which re-runs every arm.")
     p.add_argument("--skip-assisted", action="store_true",
                    help="run only Experiment A (compute scaling), skip the ablation.")
     # eval knobs
@@ -399,6 +460,14 @@ def main() -> None:
         args.workers, eval_every=max(1, args.scaled_iters // 5),
         eval_games=args.eval_games, eval_sims=args.eval_sims,
         material_weight=args.assist_weight)
+
+    if args.only_combined:
+        combined = run_stage("combined", combined_cfg, args.eval_games, args.eval_sims)
+        # A --quick smoke test must never overwrite the real write-up.
+        path = (os.path.join(OUT_DIR, "experiment-c-results.quick.md") if args.quick
+                else os.path.join("docs", "experiment-c-results.md"))
+        print(f"\nExperiment C written to {write_combined_only(combined, path)}")
+        return
 
     baseline = run_stage("baseline", baseline_cfg, args.eval_games, args.eval_sims)
     scaled = run_stage("scaled", scaled_cfg, args.eval_games, args.eval_sims)
