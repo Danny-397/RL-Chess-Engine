@@ -346,7 +346,8 @@ curves](assets/training_progress.png)).
 **The draw cycle is primarily a self-play signal problem, not a compute ceiling.**
 Blending `material_weight = 0.30` into self-play leaf evaluation drops the
 non-decisive rate from 100% to 70% and flips Elo from −21 to +28 — at the
-*same* baseline compute budget. Both effects compound (scaled + assisted would go further).
+*same* baseline compute budget. Each lever helps on its own; whether they compound is
+what Experiment C tests (`python run_experiment.py --device cuda --only-combined`).
 The `config.py` default is now `0.30`; see [docs/technical-report.md §5.3](docs/technical-report.md)
 for the full analysis and [docs/experiment-results.md](docs/experiment-results.md) for all numbers.
 

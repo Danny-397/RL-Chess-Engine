@@ -342,7 +342,7 @@ moves the metrics *distinguishes the cause*, rather than assuming it:
 |---|---|---|
 | yes | no | classic **compute ceiling** |
 | no | yes | an **impoverished self-play signal**, not raw compute |
-| yes | yes | both compound |
+| yes | yes | both contribute (whether they compound needs a combined run) |
 | no | no | cause lies elsewhere — e.g. encoding (move-history planes, §8) |
 
 **This run lands on the `yes | yes` row:** compute helped (A) *and* the self-play

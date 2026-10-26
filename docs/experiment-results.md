@@ -233,8 +233,9 @@ draw-cycle signature (technical report §6), not a training success.*
    self-play — at the *same* baseline compute — drops the final-iteration
    non-decisive rate to 70%, keeps checkmates appearing throughout training
    (19/100 aggregate), and flips Elo to **+28**. The engine beats random.
-4. **Both effects compound** ("yes | yes" in the §5.3 reading matrix): compute helps
-   *and* signal helps. A combined scaled-plus-assisted run is the natural next step;
+4. **Both levers help** ("yes | yes" in the §5.3 reading matrix): compute helps
+   *and* signal helps, each measured on its own. Whether they *compound* (stacking
+   them beats either alone) is untested until a combined scaled-plus-assisted run;
    it is ready to run on Kaggle as [`notebooks/experiment_c.ipynb`](../notebooks/experiment_c.ipynb)
    (`python run_experiment.py --device cuda --only-combined`).
 5. **`material_weight = 0.30` is the recommended self-play default**, now set via
