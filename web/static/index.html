@@ -249,6 +249,20 @@
   .pcard .fine.gold { color: var(--gold); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
   .controls .btn { padding: 9px 14px; }
+  .main-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .main-controls #newBtn { grid-column: 1 / -1; }
+  .watch-btn { width: 100%; margin-top: 8px; padding: 9px 14px; }
+  .game-settings { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .game-settings summary {
+    cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px; font-weight: 600; color: var(--muted); padding: 4px 0;
+  }
+  .game-settings summary::-webkit-details-marker { display: none; }
+  .game-settings summary::after { content: "+"; font-size: 18px; font-weight: 400; color: var(--muted); }
+  .game-settings[open] summary::after { content: "\2212"; }
+  .game-settings summary:hover, .game-settings summary:hover::after { color: var(--ink); }
+  .settings-actions { margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; }
+  .settings-actions .btn { padding: 8px 10px; font-size: 14px; }
   .toggle { display: flex; align-items: center; gap: 9px; margin-top: 12px; font-size: 14px; color: var(--muted); cursor: pointer; }
   .toggle input { width: 16px; height: 16px; accent-color: var(--gold); }
   .optrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; font-size: 14px; color: var(--muted); }
@@ -490,14 +504,16 @@
       <div class="panel-col">
         <div class="pcard">
           <h4>Game</h4>
-          <div class="controls">
+          <!-- The three moves people make every game stay in view; the rest
+               (side, difficulty, clock, toggles, flip, PGN) folds into settings. -->
+          <div class="controls main-controls">
             <button class="btn primary" id="newBtn">New game</button>
             <button class="btn ghost" id="hintBtn">Hint</button>
             <button class="btn ghost" id="undoBtn">Undo</button>
-            <button class="btn ghost" id="flipBtn">Flip</button>
-            <button class="btn ghost" id="pgnBtn">Copy PGN</button>
-            <button class="btn ghost" id="watchBtn">Watch self-play</button>
           </div>
+          <button class="btn ghost watch-btn" id="watchBtn">Watch self-play</button>
+          <details class="game-settings" id="gameSettings">
+          <summary>Game settings</summary>
           <div class="optrow"><span>Play as</span>
             <select id="side">
               <option value="w" selected>White</option>
@@ -532,7 +548,12 @@
           <label class="toggle"><input type="checkbox" id="soundToggle" checked /> Sound effects</label>
           <label class="toggle" id="autoFlipRow" style="display:none;"><input type="checkbox" id="autoFlip" checked /> Flip board after each move</label>
           <p class="fine gold" id="couchTip" style="display:none;">Couch play: two people share this board, taking turns as White and Black.</p>
+          <div class="controls settings-actions">
+            <button class="btn ghost" id="flipBtn">Flip board</button>
+            <button class="btn ghost" id="pgnBtn">Copy PGN</button>
+          </div>
           <p class="muted fine">Tip: right-click + drag to draw an arrow; right-click a square to mark it. Keys: N new · F flip · U undo · H hint.</p>
+          </details>
         </div>
 
         <div class="pcard" id="clockCard" style="display:none;">
