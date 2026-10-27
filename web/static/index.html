@@ -113,11 +113,11 @@
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
 
   /* ---- landing ---- */
-  .hero { text-align: center; padding: var(--s-8) var(--s-4) var(--s-6); }
-  .hero h1 { font-family: "Cormorant Garamond", serif; font-size: clamp(40px, 5.6vw, 60px); line-height: 1.05; margin: 0 0 var(--s-4); letter-spacing: -.01em; }
+  .hero { text-align: center; padding: 96px var(--s-4) 72px; }
+  .hero h1 { font-family: "Cormorant Garamond", serif; font-size: clamp(44px, 6.4vw, 76px); line-height: 1.02; margin: 0 0 var(--s-5); letter-spacing: -.015em; }
   .hero h1 .accent { color: var(--gold); }
-  .hero p.lead { font-size: 19px; color: var(--muted); max-width: 640px; margin: 0 auto var(--s-5); }
-  .cta { display: inline-flex; gap: var(--s-3); flex-wrap: wrap; justify-content: center; }
+  .hero p.lead { font-size: 20px; line-height: 1.5; color: var(--muted); max-width: 600px; margin: 0 auto var(--s-6); }
+  .cta { display: inline-flex; gap: var(--s-5); flex-wrap: wrap; justify-content: center; align-items: center; }
   .btn {
     font: inherit; font-weight: 600; cursor: pointer; border: 1px solid transparent;
     padding: 12px 22px; border-radius: var(--r-sm);
@@ -138,7 +138,7 @@
     transition: border-color var(--fast) var(--ease); }
   .preview:hover { border-color: var(--gold-soft); }
   .preview img { display: block; width: 100%; height: auto; }
-  .preview-caption { text-align: center; color: var(--muted); font-size: 14px; margin: calc(-1 * var(--s-6)) 0 var(--s-7); }
+  .preview-caption { text-align: center; color: var(--muted); font-size: 14px; max-width: 640px; margin: calc(-1 * var(--s-6)) auto 96px; }
 
   /* Callout: the one gold-ruled card per page that carries the key result. */
   .callout { border-left: 4px solid var(--gold); margin: var(--s-5) 0; }
@@ -160,14 +160,14 @@
   .elo .val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
   .elo-note { font-size: 13px; color: var(--muted); margin: var(--s-2) 0 0; }
 
-  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: var(--s-4); margin-top: var(--s-7); }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: var(--s-5); margin-top: 96px; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-5); }
   /* Hero details: one solid action, one secondary, and a quiet text link. */
   .eyebrow { color: var(--gold); font-weight: 600; font-size: 15px; margin: 0 0 12px; }
-  .text-link { display: inline-flex; align-items: center; gap: 4px; padding: 10px 8px;
+  .text-link { font: inherit; font-size: 17px; background: none; border: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 10px 8px;
     color: var(--gold); font-weight: 600; }
   .text-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .hero-note { max-width: 620px; margin: 22px auto 0; font-size: 13.5px; line-height: 1.6; }
+  .callout .text-link { padding-left: 0; }
   /* The second feature row reads as a list, so the page doesn't show two
      identical four-card grids back to back. */
   .features.plain .card { background: none; border: 0; border-top: 1px solid var(--line);
@@ -175,7 +175,7 @@
   .card h3 { margin: 6px 0 8px; font-size: 18px; }
   .card p { margin: 0; color: var(--muted); font-size: 15px; }
   .card .ico { font-size: 24px; }
-  .section-title { font-family: "Cormorant Garamond", serif; font-size: 34px; margin: var(--s-8) 0 var(--s-1); }
+  .section-title { font-family: "Cormorant Garamond", serif; font-size: 40px; line-height: 1.1; margin: 112px 0 var(--s-2); }
   .section-lede { max-width: 720px; }
   .page-title { font-size: 40px; margin: 6px 0; }
   .muted { color: var(--muted); }
@@ -368,6 +368,7 @@
     .hero { padding: var(--s-6) 0 var(--s-5); }
     .hero p.lead { font-size: 17px; }
     .cta .btn { flex: 1 1 100%; }
+    .cta { gap: var(--s-2); }
     .preview-caption { margin-top: calc(-1 * var(--s-7) + var(--s-3)); }
     .elo li { grid-template-columns: 92px 1fr 40px; gap: var(--s-2); font-size: 13px; }
   }
@@ -390,73 +391,61 @@
     <div class="hero">
       <p class="eyebrow">A reinforcement-learning project</p>
       <h1 class="serif">A chess engine that <span class="accent">teaches itself</span></h1>
-      <p class="lead">An <strong>AlphaZero-style reinforcement-learning</strong> system, built from scratch
-        in Python &amp; PyTorch: a policy-and-value network, guided by Monte-Carlo Tree Search, that
-        learns purely by playing itself.</p>
+      <p class="lead">An AlphaZero-style engine built from scratch in Python and PyTorch.
+        It learns chess purely by playing against itself.</p>
       <div class="cta">
         <button class="btn primary" data-goto="play">Play a game</button>
-        <button class="btn ghost" data-goto="learn">See how it learns</button>
-        <a class="text-link" href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">View source <span aria-hidden="true">&rsaquo;</span></a>
+        <button class="text-link" data-goto="learn">See how it learns <span aria-hidden="true">&rsaquo;</span></button>
       </div>
-      <p class="muted hero-note">
-        Honest note: the star is the <strong>self-taught network</strong>, but a laptop can't run enough
-        self-play to make it strong on its own. The default opponent pairs it with a small tactical search;
-        switch to the <strong>raw net</strong> anytime to meet the learning project by itself.
-        <a href="#learn" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a></p>
     </div>
 
     <a class="preview" href="#play" aria-label="Open the Play tab">
       <img src="static/play_preview.webp" width="1600" height="982" decoding="async"
            alt="The Play tab mid-game: the engine's top three recommended moves with evaluations, the move list, a vertical evaluation bar beside a wooden board, and the game controls." />
     </a>
-    <p class="preview-caption">The Play tab, captured from this site: the engine's live recommendations, evaluation bar and opening name.</p>
+    <p class="preview-caption">The default opponent pairs the self-taught network with a small
+      tactical search, since a laptop can't run enough self-play to make it strong alone. Switch to
+      the raw net to play the network by itself.</p>
 
     <div class="card callout centered">
       <h3>Headline result: the “draw cycle”</h3>
-      <p>The engine kept drawing even when it was winning. A controlled experiment showed this wasn’t
-        mainly a compute limit: giving self-play a better signal (<code>material_weight&nbsp;=&nbsp;0.30</code>)
-        flipped its Elo-vs-random from <strong>−21 to +28</strong> at the <em>same</em> compute.</p>
+      <p>The engine kept drawing even when it was winning. It wasn’t mainly a compute limit: giving
+        self-play a better training signal flipped its Elo from −21 to +28 at the same compute.</p>
       <ol class="elo" aria-label="Elo versus a random-move opponent, by training run">
         <li><span class="run">Baseline</span><span class="track"><span class="bar neg" style="width:35%"></span></span><span class="val">−21</span></li>
         <li><span class="run">10× compute</span><span class="track"><span class="bar neg" style="width:11.7%"></span></span><span class="val">−7</span></li>
         <li><span class="run">Better signal</span><span class="track"><span class="bar pos" style="width:46.7%"></span></span><span class="val">+28</span></li>
       </ol>
       <p class="elo-note">Elo vs a random-move opponent. Scale ±30, zero at the centre line.</p>
-      <div class="btn-row"><button class="btn ghost sm" data-goto="findings">See the experiment →</button></div>
+      <div class="btn-row"><button class="text-link" data-goto="findings">See the experiment <span aria-hidden="true">&rsaquo;</span></button></div>
     </div>
 
     <div class="features">
       <div class="card"><h3>Neural network</h3>
-        <p>A residual CNN reads the board and outputs a move <em>policy</em> and a <em>value</em>
-           (who's winning) — no hand-written chess knowledge.</p></div>
+        <p>A residual CNN reads the board and predicts the best moves and who is winning.
+           No hand-written chess knowledge.</p></div>
       <div class="card"><h3>Search (MCTS)</h3>
-        <p>Monte-Carlo Tree Search with the PUCT rule looks ahead, turning the network's hunches
-           into much stronger moves.</p></div>
+        <p>Monte-Carlo Tree Search looks ahead, turning the network's hunches into stronger moves.</p></div>
       <div class="card"><h3>Self-play learning</h3>
-        <p>The engine is its own opponent and its own teacher: games become training data, which
-           sharpens the next generation.</p></div>
-      <div class="card"><h3>Play it now</h3>
-        <p>Face the self-taught network (paired with a quick tactical search so it's a fair fight),
-           the raw network on its own, or a strong classical engine — right in your browser.</p></div>
+        <p>The engine is its own opponent and teacher. Every game becomes training data for the
+           next generation.</p></div>
     </div>
 
     <h2 class="section-title">How this is different from other chess engines</h2>
-    <p class="muted section-lede">Most chess engines are pre-built black boxes. This one is about <em>understanding</em> how an engine learns and thinks.</p>
+    <p class="muted section-lede">Most engines are black boxes. This one is built to show how an engine learns and thinks.</p>
     <div class="features plain">
       <div class="card"><h3>It learns, it isn't told</h3>
-        <p>Engines like Stockfish run on decades of human-tuned chess knowledge. This one starts from
-           <em>random</em> and teaches <em>itself</em> — the AlphaZero idea — discovering good play from
-           its own games.</p></div>
+        <p>Stockfish runs on decades of human-tuned knowledge. This one starts from random play
+           and discovers good moves from its own games.</p></div>
       <div class="card"><h3>It shows its thinking</h3>
-        <p>See the live evaluation, win probability and the moves it's considering, drawn as arrows on
-           the board. Most engines never let you see <em>why</em>.</p></div>
+        <p>See the live evaluation, win probability and the moves it's considering, drawn as arrows
+           on the board.</p></div>
       <div class="card"><h3>Built from scratch to be understood</h3>
-        <p>The network, the search and the self-play loop are all written from scratch and explained in
-           plain English on the <a href="#learn" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a>
-           page. It's a learning tool, not just a player.</p></div>
+        <p>The network, search and self-play loop are written from scratch and explained in plain
+           English on the <a href="#learn" onclick="showTab('learn');return false;">How&nbsp;it&nbsp;works</a> page.</p></div>
       <div class="card"><h3>Watch it play itself</h3>
-        <p>Hit <strong>“Watch self-play”</strong> and the engine reasons through a whole game on its own —
-           exactly the kind of self-play it learns from.</p></div>
+        <p>Press “Watch self-play” and the engine plays a whole game against itself, the same way
+           it learns.</p></div>
     </div>
   </section>
 
