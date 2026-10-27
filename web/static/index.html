@@ -320,6 +320,14 @@
   }
   /* opening name */
   .opening { margin-top: 6px; font-size: 13px; color: var(--gold); font-weight: 600; min-height: 18px; }
+  .move-feedback { margin-top: 6px; min-height: 24px; font-size: 14px; color: var(--muted); text-align: center; }
+  .mf-tag { display: inline-block; margin-right: 6px; padding: 2px 9px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+  .mf-best, .mf-good { background: rgba(111,174,95,.16); color: var(--good); }
+  .mf-inaccuracy { background: rgba(212,162,76,.16); color: var(--gold); }
+  .mf-mistake { background: rgba(197,86,75,.16); color: #e08a80; }
+  .mf-blunder { background: rgba(197,86,75,.28); color: #f0a49b; }
+  .history .glyph { margin-left: 2px; font-weight: 700; }
+  .history .glyph.mf-inaccuracy, .history .glyph.mf-mistake, .history .glyph.mf-blunder { background: none; padding: 0; }
   /* vertical evaluation bar — runs the full height of the board, on its left.
      White's winning chances fill up from the bottom; the rest is Black. */
   .evalbar-vert {
@@ -498,6 +506,7 @@
         </div>
         <div class="statusrow"><span class="loader" id="spinner"></span><span id="status">You play White. Click a piece then its destination — or drag it.</span></div>
         <div class="opening" id="opening"></div>
+        <div class="move-feedback" id="moveFeedback" aria-live="polite"></div>
       </div>
 
       <!-- RIGHT: controls, clock, material -->
@@ -546,6 +555,7 @@
           </div>
           <label class="toggle"><input type="checkbox" id="showMoves" checked /> Show legal moves when I pick up a piece</label>
           <label class="toggle"><input type="checkbox" id="soundToggle" checked /> Sound effects</label>
+          <label class="toggle"><input type="checkbox" id="rateToggle" checked /> Rate my moves</label>
           <label class="toggle" id="autoFlipRow" style="display:none;"><input type="checkbox" id="autoFlip" checked /> Flip board after each move</label>
           <p class="fine gold" id="couchTip" style="display:none;">Couch play: two people share this board, taking turns as White and Black.</p>
           <div class="controls settings-actions">
@@ -1022,7 +1032,9 @@ function doMove(from, to) {
   finalizeMove(from, to, 'q');
 }
 function finalizeMove(from, to, promo) {
+  const fenBefore = game.fen();
   const mv = game.move({ from, to, promotion: promo });
+  if (mv && rateOn && !selfplay) gradeMove(fenBefore, mv, game.history().length - 1);
   playSound(soundForMove(mv));
   lastMove = { from, to };
   hintMove = null; clearSelection();
@@ -1062,8 +1074,13 @@ function renderHistory() {
   const el = document.getElementById('history');
   if (!h.length) { el.innerHTML = '<span class="empty">No moves yet.</span>'; return; }
   let rows = '';
+  const cell = (i) => {
+    if (!h[i]) return '';
+    const g = grades[i];
+    return g && g.san === h[i] && g.glyph ? `${h[i]}<span class="glyph ${g.cls}">${g.glyph}</span>` : h[i];
+  };
   for (let i = 0; i < h.length; i += 2) {
-    rows += `<div class="row"><span class="num">${i / 2 + 1}.</span><span>${h[i]}</span><span>${h[i + 1] || ''}</span></div>`;
+    rows += `<div class="row"><span class="num">${i / 2 + 1}.</span><span>${cell(i)}</span><span>${cell(i + 1)}</span></div>`;
   }
   el.innerHTML = rows; el.scrollTop = el.scrollHeight;
 }
@@ -1268,6 +1285,7 @@ function newGame() {
   humanColor = sideSel === 'random' ? (Math.random() < 0.5 ? 'w' : 'b') : sideSel;
   orientation = (couch || humanColor === 'w') ? 'white' : 'black';   // couch play starts White-at-bottom
   game.reset(); clearSelection(); clearAnnotations(); lastMove = null; hintMove = null; thinking = false; pendingPromo = null;
+  grades = {}; setFeedback('');
   document.getElementById('promo').classList.remove('show');
   // clock setup
   timeControl = parseInt(document.getElementById('timeCtl').value, 10) || 0;
@@ -1317,6 +1335,49 @@ document.getElementById('hintBtn').onclick = async () => {
     setStatus('Engine recommends: ' + (best ? best.san : '—'));
   }
 };
+// ----------------------------- move rating -----------------------------
+// After each of your moves, the classical searcher ranks every legal move in
+// the position you moved from. Comparing your move's win probability with the
+// best one gives the familiar labels; it runs alongside the engine's reply, so
+// it never slows the game down.
+let rateOn = true;
+let grades = {};             // ply -> { san, cls, glyph }
+const RATE_DEPTH = 3;
+function setFeedback(html) { document.getElementById('moveFeedback').innerHTML = html; }
+function classify(drop, isBest) {
+  if (isBest) return { cls: 'mf-best', label: 'Best move', glyph: '' };
+  if (drop < 0.05) return { cls: 'mf-good', label: 'Good move', glyph: '' };
+  if (drop < 0.12) return { cls: 'mf-inaccuracy', label: 'Inaccuracy', glyph: '?!' };
+  if (drop < 0.25) return { cls: 'mf-mistake', label: 'Mistake', glyph: '?' };
+  return { cls: 'mf-blunder', label: 'Blunder', glyph: '??' };
+}
+async function gradeMove(fen, mv, ply) {
+  const uci = mv.from + mv.to + (mv.promotion || '');
+  let data;
+  try {
+    const r = await fetch(API_BASE + '/analyze', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen, top_n: 256, depth: RATE_DEPTH }),
+    });
+    if (!r.ok) return;
+    data = await r.json();
+  } catch (e) { return; }                         // rating is a nicety; stay quiet if it fails
+  const ranked = data.suggestions || [];
+  const best = ranked[0], played = ranked.find(x => x.uci === uci);
+  if (!best || !played) return;
+  if (game.history()[ply] !== mv.san) return;      // taken back or a new game meanwhile
+  const isBest = played.uci === best.uci || played.win_probability >= best.win_probability;
+  const c = classify(best.win_probability - played.win_probability, isBest);
+  grades[ply] = { san: mv.san, cls: c.cls, glyph: c.glyph };
+  renderHistory();
+  const better = c.glyph ? ` Best was <strong>${best.san}</strong>.` : '';
+  setFeedback(`<span class="mf-tag ${c.cls}">${c.label}</span>${mv.san}.${better}`);
+}
+document.getElementById('rateToggle').onchange = (e) => {
+  rateOn = e.target.checked;
+  if (!rateOn) setFeedback('');
+};
+
 document.getElementById('soundToggle').onchange = (e) => {
   soundOn = e.target.checked;
   if (soundOn) { ensureAudio(); playSound('move'); }
