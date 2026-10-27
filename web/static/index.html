@@ -249,6 +249,15 @@
   .pcard .fine.gold { color: var(--gold); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
   .controls .btn { padding: 9px 14px; }
+  .opp-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; background: var(--bg2); border-radius: 10px; }
+  .opp-switch button {
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    padding: 7px 4px; border: 0; border-radius: 8px; background: transparent; color: var(--muted);
+  }
+  .opp-switch button:hover:not([disabled]) { color: var(--ink); }
+  .opp-switch button[aria-checked="true"] { background: var(--gold); color: #241803; }
+  .opp-switch button[disabled] { opacity: .45; cursor: progress; }
+  .opp-note { margin: 8px 2px 14px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
   .main-controls { display: grid; grid-template-columns: 1fr 1fr; }
   .main-controls #newBtn { grid-column: 1 / -1; }
   .watch-btn { width: 100%; margin-top: 8px; padding: 9px 14px; }
@@ -513,6 +522,15 @@
       <div class="panel-col">
         <div class="pcard">
           <h4>Game</h4>
+          <!-- Who you're playing is the interesting choice on this site, so it is
+               a visible switch rather than a dropdown. It drives the #opponent
+               select in settings, which stays the source of truth. -->
+          <div class="opp-switch" role="radiogroup" aria-label="Opponent" id="oppSwitch">
+            <button type="button" role="radio" data-opp="netsearch" aria-checked="true">Hybrid</button>
+            <button type="button" role="radio" data-opp="rawnet" aria-checked="false" disabled title="Loading the self-taught network…">Raw net</button>
+            <button type="button" role="radio" data-opp="classical" aria-checked="false">Classical</button>
+          </div>
+          <p class="opp-note" id="oppNote">Hybrid: the self-taught network, helped by a small tactical search.</p>
           <!-- The three moves people make every game stay in view; the rest
                (side, difficulty, clock, toggles, flip, PGN) folds into settings. -->
           <div class="controls main-controls">
@@ -1522,11 +1540,15 @@ async function loadRL() {
     rlReady = true;
     const raw = document.getElementById('rawnetOption');
     raw.disabled = false; raw.textContent = 'Neural net (raw · self-taught)';
+    const rawBtn = document.querySelector('#oppSwitch [data-opp="rawnet"]');
+    rawBtn.disabled = false; rawBtn.title = 'The self-taught network alone, no search';
     console.log('Self-taught network: loaded, self-check passed.');
   } catch (e) {
     rlReady = false;
+    const rawBtn = document.querySelector('#oppSwitch [data-opp="rawnet"]');
+    rawBtn.title = 'The self-taught network could not load in this browser';
     console.warn('Neural net unavailable (' + e.message + ') — search / classical still work.');
-    if (opponent === 'rawnet') { opponent = 'netsearch'; document.getElementById('opponent').value = 'netsearch'; }
+    if (opponent === 'rawnet') { opponent = 'netsearch'; document.getElementById('opponent').value = 'netsearch'; syncOppSwitch(); }
   }
 }
 
@@ -1704,9 +1726,28 @@ async function getEngineData() {
   return ask('engine_move', 3);   // "classical" (and "rawnet" before the net finishes loading)
 }
 
+const OPP_NOTES = {
+  netsearch: 'Hybrid: the self-taught network, helped by a small tactical search.',
+  rawnet: 'The self-taught network on its own. It plays what it learned, blunders included.',
+  classical: 'A conventional alpha-beta engine. The strongest of the three.',
+  couch: 'Two people share this board, taking turns.',
+};
+function syncOppSwitch() {
+  document.querySelectorAll('#oppSwitch [data-opp]').forEach(b =>
+    b.setAttribute('aria-checked', String(b.dataset.opp === opponent)));
+  document.getElementById('oppNote').textContent = OPP_NOTES[opponent] || '';
+}
+document.querySelectorAll('#oppSwitch [data-opp]').forEach(b => b.addEventListener('click', () => {
+  if (b.disabled || b.dataset.opp === opponent) return;
+  const sel = document.getElementById('opponent');
+  sel.value = b.dataset.opp;
+  sel.dispatchEvent(new Event('change'));
+}));
+
 document.getElementById('opponent').onchange = e => {
   if (e.target.value === 'rawnet' && !rlReady) { e.target.value = 'netsearch'; }
   opponent = e.target.value;
+  syncOppSwitch();
   const couch = opponent === 'couch';
   document.getElementById('autoFlipRow').style.display = couch ? 'flex' : 'none';
   document.getElementById('couchTip').style.display = couch ? 'block' : 'none';
