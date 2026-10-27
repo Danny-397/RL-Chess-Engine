@@ -25,7 +25,10 @@ jobs:
           python -m pip install --upgrade pip
           # CPU-only torch keeps the CI install small and fast.
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install python-chess numpy pytest
+          # onnx/onnxruntime/onnxscript let the ONNX-vs-PyTorch parity tests run here;
+          # without them they skipped, so CI passed 37/39 and never checked the
+          # exported model the public site actually serves.
+          pip install python-chess numpy pytest onnx onnxruntime onnxscript
 
       - name: Run tests
         run: pytest -q
