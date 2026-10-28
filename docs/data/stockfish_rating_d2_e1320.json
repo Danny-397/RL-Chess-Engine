@@ -1,0 +1,20 @@
+{
+  "engine": "classical alpha-beta, depth 2",
+  "opponent": "Stockfish UCI_Elo 1320, 0.1s/move",
+  "games": 30,
+  "wins": 14,
+  "draws": 8,
+  "losses": 8,
+  "score": 0.6,
+  "elo_diff": 70,
+  "elo_diff_95ci": [
+    -36,
+    192
+  ],
+  "rating_estimate": 1390,
+  "rating_95ci": [
+    1284,
+    1512
+  ],
+  "seconds": 2424
+}
