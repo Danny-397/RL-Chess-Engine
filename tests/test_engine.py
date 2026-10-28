@@ -169,6 +169,33 @@ def test_search_finds_mate_in_one():
     assert board.is_checkmate()  # Ra8#
 
 
+def test_quiescence_orders_captures_most_valuable_victim_first():
+    """Captures are tried biggest victim first, cheapest attacker first."""
+    # Qh5 Italian: Qxf7+, Bxf7+ and Qxe5 are all available.
+    board = chess.Board("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4")
+    moves = search._ordered_captures(board)
+    assert set(moves) == {m for m in board.legal_moves if board.is_capture(m)}
+    assert len(moves) >= 3
+
+    def value(square):
+        piece = board.piece_at(square)
+        return search._VALUE.get(piece.piece_type, 0) if piece else search._VALUE[chess.PAWN]
+
+    keys = [(-value(m.to_square), value(m.from_square)) for m in moves]
+    assert keys == sorted(keys)  # biggest victim first; on ties, cheapest attacker first
+
+
+def test_search_does_not_stall_on_a_capture_heavy_opening():
+    """Regression: unordered quiescence ran past 15 minutes here at depth 3
+    (the site's Normal setting). With MVV-LVA ordering it takes seconds."""
+    import time
+    board = chess.Board("rnbqk2r/pp3ppp/4pn2/2bp4/8/2NBPN2/PPP2PPP/R1BQK2R w KQkq - 0 7")
+    start = time.time()
+    best, _, _ = search.search(board, depth=3)
+    assert best is not None
+    assert time.time() - start < 90
+
+
 def test_search_ranks_moves_exactly():
     """Root scores are exact, so a losing move is rated below a winning one."""
     board = chess.Board("4k3/8/8/3q4/4P3/8/8/4K3 w - - 0 1")
