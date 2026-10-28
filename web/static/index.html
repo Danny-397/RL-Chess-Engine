@@ -144,6 +144,12 @@
   .callout { border-left: 4px solid var(--gold); margin: var(--s-5) 0; }
   .callout.centered { max-width: 760px; margin: 0 auto; }
   .callout h3 { color: var(--gold); margin: 0 0 var(--s-2); }
+  /* Callout titles are h2 (they follow the page's h1) but keep the card-title look,
+     including inside .prose, whose h2 rule is the large serif section heading. */
+  .card.callout .callout-title { font-family: inherit; font-size: 18px; font-weight: 700; line-height: 1.3;
+    color: var(--gold); margin: 6px 0 var(--s-2); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   .callout p { margin: 0; color: var(--ink); }
   .callout ol { margin: var(--s-3) 0; padding-left: 20px; }
   .callout p + p { margin-top: var(--s-3); }
@@ -244,7 +250,7 @@
     .board-frame { --size: min(calc(100vw - 92px), calc(100vh - 150px)); }
   }
   .pcard { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-4) 18px; }
-  .pcard h4 { margin: 0 0 var(--s-3); font-size: 14px; font-weight: 600; color: var(--muted); }
+  .pcard .pcard-title { margin: 0 0 var(--s-3); font-family: inherit; font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--muted); }
   .pcard .fine { font-size: 12px; margin: 10px 0 0; }
   .pcard .fine.gold { color: var(--gold); }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -439,7 +445,7 @@
       the raw net to play the network by itself.</p>
 
     <div class="card callout centered">
-      <h3>Headline result: the “draw cycle”</h3>
+      <h2 class="callout-title">Headline result: the “draw cycle”</h2>
       <p>The engine kept drawing even when it was winning. It wasn’t mainly a compute limit: giving
         self-play a better training signal flipped its Elo from −21 to +28 at the same compute.</p>
       <ol class="elo" aria-label="Elo versus a random-move opponent, by training run">
@@ -482,15 +488,16 @@
 
   <!-- ===================== PLAY ===================== -->
   <section id="play" class="view">
+    <h1 class="sr-only">Play against the engine</h1>
     <div class="play-wrap">
       <!-- LEFT: engine recommendations + move list -->
       <div class="left-col">
         <div class="pcard">
-          <h4>Engine recommends</h4>
+          <h2 class="pcard-title">Engine recommends</h2>
           <ol class="moves" id="moves"><li><span class="meta">Press “Hint”.</span></li></ol>
         </div>
         <div class="pcard">
-          <h4>Moves</h4>
+          <h2 class="pcard-title">Moves</h2>
           <div class="history" id="history"><span class="empty">No moves yet.</span></div>
         </div>
       </div>
@@ -521,7 +528,7 @@
       <!-- RIGHT: controls, clock, material -->
       <div class="panel-col">
         <div class="pcard">
-          <h4>Game</h4>
+          <h2 class="pcard-title">Game</h2>
           <!-- Who you're playing is the interesting choice on this site, so it is
                a visible switch rather than a dropdown. It drives the #opponent
                select in settings, which stays the source of truth. -->
@@ -585,13 +592,13 @@
         </div>
 
         <div class="pcard" id="clockCard" style="display:none;">
-          <h4>Clock</h4>
+          <h2 class="pcard-title">Clock</h2>
           <div class="clock" id="clockTop"><span class="who" id="whoTop">Engine</span><span class="time" id="timeTop">∞</span></div>
           <div class="clock" id="clockBot"><span class="who" id="whoBot">You</span><span class="time" id="timeBot">∞</span></div>
         </div>
 
         <div class="pcard">
-          <h4>Material</h4>
+          <h2 class="pcard-title">Material</h2>
           <div class="caprow"><div class="lbl" id="capYouLbl">You captured</div><div class="cap" id="capYou"></div></div>
           <div class="caprow"><div class="lbl" id="capOppLbl">Engine captured</div><div class="cap" id="capOpp"></div></div>
         </div>
@@ -607,7 +614,7 @@
         wouldn’t win. This page is that experiment and its result.</p>
 
       <div class="card callout">
-        <h3>The “draw cycle”</h3>
+        <h2 class="callout-title">The “draw cycle”</h2>
         <p>My self-taught engine could win material but not <em>convert</em> it — it shuffled
           winning positions into draws by repetition, and drew even a random-move opponent about half the time.
           The cause: in self-play almost every game ended in a draw, so the network’s value head only ever learned
@@ -665,7 +672,7 @@
         scratch to be read and understood, not just run.</p>
 
       <div class="card callout">
-        <h3>The simple version (30 seconds)</h3>
+        <h2 class="callout-title">The simple version (30 seconds)</h2>
         <p>Nobody teaches the engine chess strategy. It only knows the rules.
           It gets good through one repeating loop:</p>
         <ol>
