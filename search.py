@@ -193,6 +193,24 @@ def _ordered_moves(board: chess.Board) -> List[chess.Move]:
     return captures + quiets
 
 
+def _ordered_captures(board: chess.Board) -> List[chess.Move]:
+    """Captures, most valuable victim first and cheapest attacker first (MVV-LVA).
+
+    Alpha-beta only prunes well when strong moves come first. Taken in the move
+    generator's order, a position full of mutual captures made the quiescence
+    tree explode: one depth-3 search ran past 15 minutes on an ordinary opening
+    position. The order does not change any score, only how much is searched.
+    """
+    def key(move: chess.Move) -> Tuple[int, int]:
+        victim = board.piece_at(move.to_square)
+        attacker = board.piece_at(move.from_square)
+        v = _VALUE.get(victim.piece_type, 0) if victim else _VALUE[chess.PAWN]  # en passant
+        a = _VALUE.get(attacker.piece_type, 0) if attacker else 0
+        return (-v, a)
+
+    return sorted((m for m in board.legal_moves if board.is_capture(m)), key=key)
+
+
 def _quiesce(board: chess.Board, alpha: float, beta: float) -> float:
     """Search only captures past the depth limit to avoid horizon blunders."""
     stand_pat = evaluate(board)
@@ -200,9 +218,7 @@ def _quiesce(board: chess.Board, alpha: float, beta: float) -> float:
         return beta
     if stand_pat > alpha:
         alpha = stand_pat
-    for move in board.legal_moves:
-        if not board.is_capture(move):
-            continue
+    for move in _ordered_captures(board):
         board.push(move)
         score = -_quiesce(board, -beta, -alpha)
         board.pop()
