@@ -222,7 +222,7 @@ down with tests:
   promotions. Tested by `test_move_encoding_roundtrip_white` /
   `_promotions` and `test_move_index_in_range_for_all_legal_start_moves`.
 
-The full suite (39 tests, run in CI) also covers terminal values
+The full suite (41 tests, run in CI) also covers terminal values
 (`test_terminal_value_checkmate`, `test_stalemate_is_a_draw`,
 `test_insufficient_material_is_a_draw`), search behaviour
 (`test_mcts_returns_valid_distribution`, `test_mcts_is_deterministic_without_noise`,
