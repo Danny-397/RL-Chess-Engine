@@ -153,7 +153,12 @@ position as FEN).
 >   what *How it works* explains.
 > - **Classical (strong)** — the dependency-light alpha-beta searcher ([`search.py`](search.py):
 >   negamax, quiescence, piece-square tables, endgame mop-up), served by the backend. It plays sound
->   chess and beats the random baseline 10–0. Tune it with `--depth` (CLI) / `RLCHESS_DEPTH` (server).
+>   chess and beats the random baseline 10–0. Against Stockfish 19 held to `UCI_Elo 1320` (0.1 s/move),
+>   the **Easy** setting (depth 2) scored **14 wins, 8 draws, 8 losses**: an estimated **~1390**
+>   (95% CI 1284–1512) on Stockfish's engine-rating scale, not a FIDE or chess.com rating
+>   ([`tools/stockfish_rating.py`](tools/stockfish_rating.py), [result](docs/data/stockfish_rating_d2_e1320.json)).
+>   Normal (depth 3) is stronger but ~20× slower per move and has not been rated yet.
+>   Tune it with `--depth` (CLI) / `RLCHESS_DEPTH` (server).
 > - **Couch play** — two people share the board.
 >
 > The network runs client-side from [`web/static/model.onnx`](web/static/model.onnx), gated by a
