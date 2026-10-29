@@ -429,7 +429,7 @@
       <p class="eyebrow">A reinforcement-learning project</p>
       <h1 class="serif">A chess engine that <span class="accent">teaches itself</span></h1>
       <p class="lead">An AlphaZero-style engine built from scratch in Python and PyTorch.
-        It learns chess purely by playing against itself.</p>
+        It learns by playing against itself, with one hand&#8209;coded nudge: a simple material count.</p>
       <div class="cta">
         <button class="btn primary" data-goto="play">Play a game</button>
         <button class="text-link" data-goto="learn">See how it learns <span aria-hidden="true">&rsaquo;</span></button>
@@ -673,7 +673,7 @@
 
       <div class="card callout">
         <h2 class="callout-title">The simple version (30 seconds)</h2>
-        <p>Nobody teaches the engine chess strategy. It only knows the rules.
+        <p>Nobody teaches the engine chess strategy. It knows the rules, plus one hint: what the pieces are worth.
           It gets good through one repeating loop:</p>
         <ol>
           <li><strong>Guess.</strong> A neural network looks at the board and guesses the best moves and who's winning.</li>
@@ -682,7 +682,8 @@
           <li><strong>Learn.</strong> Whoever won, it nudges the network toward the moves that led to wins — so next time the <em>guess</em> is already smarter.</li>
         </ol>
         <p>Run that loop long enough and an engine bootstraps itself from random moves to real chess —
-          <strong>with zero human strategy added.</strong> DeepMind ran it for tens of millions of games; this project's
+          <strong>with zero human strategy added.</strong> That is pure AlphaZero; this engine also blends a 30% material count
+          into its search, because without it the young network drew every game and never learned. DeepMind ran it for tens of millions of games; this project's
           longest run was 1,000, which is why the raw network is still weak (see <a href="#findings" onclick="showTab('findings');return false;">Findings</a>).
           Everything below is just that loop, in detail.</p>
       </div>
