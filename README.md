@@ -20,8 +20,11 @@
 A clean, fully-documented implementation of an **AlphaZero-style reinforcement
 learning chess engine**, written from scratch in **Python + PyTorch**.
 
-The engine learns to play chess **with zero human knowledge** beyond the rules:
-it starts from random weights and improves purely by playing against itself.
+The engine learns to play chess by playing against itself: it starts from random
+weights and improves from the results of its own games. One piece of human knowledge
+is built in by default: the search blends a simple material count into its position
+evaluation (`material_weight = 0.30`), which breaks the draw cycle described below.
+Set it to `0.0` for pure AlphaZero, with zero human knowledge beyond the rules.
 The same three ideas that powered DeepMind's AlphaZero are all here, implemented
 in a way meant to be *read and understood*:
 

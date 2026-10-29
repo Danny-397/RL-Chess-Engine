@@ -177,9 +177,10 @@ class MCTS:
         """
         policy_logits, value = self.network.predict(game.encode_state())
 
-        # Play-time assist: blend in a material heuristic so the search wins
+        # Material assist: blend in a material heuristic so the search wins
         # material and captures hanging pieces even before the network is fully
-        # trained.  Disabled (weight 0) during self-play to keep training pure.
+        # trained.  Applies to self-play as well as play (see
+        # ``MCTSConfig.material_weight``); set the weight to 0 for pure AlphaZero.
         w = self.config.material_weight
         if w > 0.0:
             value = (1.0 - w) * value + w * heuristic_score(game.board)
