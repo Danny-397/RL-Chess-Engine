@@ -28,7 +28,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 
 <style>
   :root {
@@ -646,7 +645,7 @@
         </table>
       </div>
 
-      <img class="curve" src="static/draw_cycle.png" alt="Non-decisive rate and Elo vs random across the baseline, scaled, and material-assisted runs" />
+      <img class="curve" src="static/draw_cycle.png" width="2373" height="893" loading="lazy" decoding="async" alt="Non-decisive rate and Elo vs random across the baseline, scaled, and material-assisted runs" />
 
       <h2>The result</h2>
       <p>The draw cycle was <strong>primarily a self-play signal problem, not a compute ceiling</strong>. Scaling
@@ -722,7 +721,7 @@
       <h2>4 · A real training run</h2>
       <p>Loss from an actual self-play run — the policy loss drops sharply as the network learns to
         imitate the search:</p>
-      <img class="curve" src="static/training_progress.png" alt="training loss and Elo curves" />
+      <img class="curve" src="static/training_progress.png" width="1440" height="540" loading="lazy" decoding="async" alt="training loss and Elo curves" />
       <p class="muted small">Honest note: reaching strong play needs far more
         (GPU) self-play than a laptop CPU allows — the learning machinery is correct, the limit is
         compute. So on the <strong>Play</strong> page the default opponent pairs this network with a
@@ -1518,9 +1517,29 @@ async function netValueBatch(fens) {            // -> Float32 values (side-to-mo
   return out.value.data;
 }
 
+// onnxruntime-web and the model are ~3.5 MB, most of a visit's bytes, and only
+// the Play tab uses them. So they load when a visitor heads for Play (hovers or
+// focuses its button, or opens it), not with the page. Until then the default
+// opponent still plays: the network is only its tie-break.
+const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js';
+let rlLoading = null;
+function ensureRL() {
+  if (!rlLoading) rlLoading = new Promise((resolve, reject) => {
+    if (window.ort) return resolve();
+    const s = document.createElement('script');
+    s.src = ORT_URL; s.onload = resolve;
+    s.onerror = () => reject(new Error('onnxruntime-web did not load'));
+    document.head.appendChild(s);
+  }).then(loadRL, (e) => loadRLFailed(e));
+  return rlLoading;
+}
+
 async function loadRL() {
   try {
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/';
+    // The page is not cross-origin isolated, so threads are unavailable anyway;
+    // saying so up front skips ORT's SharedArrayBuffer probe and its warning.
+    ort.env.wasm.numThreads = 1;
     rlSession = await ort.InferenceSession.create('static/model.onnx');
     // Golden self-check: confirm the JS encoding matches Python (incl. the mirror
     // path). The reference values come from model_meta.json, which is written by
@@ -1552,12 +1571,16 @@ async function loadRL() {
     rawBtn.disabled = false; rawBtn.title = 'The self-taught network alone, no search';
     console.log('Self-taught network: loaded, self-check passed.');
   } catch (e) {
-    rlReady = false;
-    const rawBtn = document.querySelector('#oppSwitch [data-opp="rawnet"]');
-    rawBtn.title = 'The self-taught network could not load in this browser';
-    console.warn('Neural net unavailable (' + e.message + ') — search / classical still work.');
-    if (opponent === 'rawnet') { opponent = 'netsearch'; document.getElementById('opponent').value = 'netsearch'; syncOppSwitch(); }
+    loadRLFailed(e);
   }
+}
+
+function loadRLFailed(e) {
+  rlReady = false;
+  const rawBtn = document.querySelector('#oppSwitch [data-opp="rawnet"]');
+  rawBtn.title = 'The self-taught network could not load in this browser';
+  console.warn('Neural net unavailable (' + e.message + ') — search / classical still work.');
+  if (opponent === 'rawnet') { opponent = 'netsearch'; document.getElementById('opponent').value = 'netsearch'; syncOppSwitch(); }
 }
 
 // --------------------------------------------------------------------------- //
@@ -1766,7 +1789,15 @@ document.getElementById('opponent').onchange = e => {
 // ----------------------------- init -----------------------------
 renderBoard();
 renderHistory();
-loadRL();
+// Start the network download on the way to Play: hovering or focusing any
+// control that opens it, or arriving on it (including a #play deep link).
+document.querySelectorAll('nav button[data-tab="play"], [data-goto="play"]').forEach(el => {
+  ['pointerenter', 'focus', 'touchstart'].forEach(t => el.addEventListener(t, ensureRL, { once: true, passive: true }));
+});
+if (document.getElementById('play').classList.contains('active')) ensureRL();
+else new MutationObserver((_, mo) => {
+  if (document.getElementById('play').classList.contains('active')) { mo.disconnect(); ensureRL(); }
+}).observe(document.getElementById('play'), { attributes: true, attributeFilter: ['class'] });
 </script>
 </body>
 </html>
