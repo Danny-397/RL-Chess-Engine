@@ -1,9 +1,12 @@
+# Pinned to exact versions (2026-10-30) so every deploy installs the same
+# packages CI tested. Bump deliberately; with Dependabot security updates
+# on (Settings > Code security), a known vulnerability in a pin opens a PR.
 # Runtime dependencies for the playable web demo (the classical alpha-beta engine
 # in search.py). This is what Vercel and Render auto-install -- intentionally
 # torch-free and tiny so it fits a serverless function / free instance.
-python-chess>=1.11
-fastapi>=0.110
-uvicorn>=0.27
+python-chess==1.999
+fastapi==0.162.0
+uvicorn==0.54.0
 
 # To TRAIN the AlphaZero neural network as well, also install the heavier extras:
 #   pip install -r requirements.txt -r requirements-train.txt

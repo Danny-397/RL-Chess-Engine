@@ -20,6 +20,7 @@ Run it with::
 
 from __future__ import annotations
 
+import mimetypes
 import os
 import sys
 from typing import Optional
@@ -54,6 +55,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def edge_cache(request: Request, call_next):
+    """Let Vercel's edge cache the page and its static files.
+
+    On Vercel every request otherwise wakes the Python function, and a cold one
+    took ~1.7 s to first byte (Lighthouse, 2026-10-30). s-maxage is honoured by
+    the edge only; browsers still revalidate (max-age=0), and each deployment
+    starts with an empty edge cache, so a new build is never served stale.
+    """
+    response = await call_next(request)
+    path = request.url.path
+    if request.method == "GET" and response.status_code == 200 and (path == "/" or path.startswith("/static/")):
+        response.headers["Cache-Control"] = "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800"
+    return response
+
+
+# Python's MIME table lacks .woff2 on some systems, which served the self-hosted
+# fonts as application/octet-stream.
+mimetypes.add_type("font/woff2", ".woff2")
 
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")

@@ -24,10 +24,14 @@
 <meta name="twitter:image" content="https://rlchess.xyz/static/screenshot_play.png" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='20'%20fill='%23d4a24c'/%3E%3Ctext%20x='50'%20y='52'%20font-size='72'%20text-anchor='middle'%20dominant-baseline='central'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<!-- Fonts are self-hosted: the Google Fonts stylesheet blocked first paint for ~0.9 s on a mobile connection (Lighthouse, 2026-10-30). -->
+<link rel="preload" href="/static/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:600 700;font-display:swap;src:url(/static/fonts/cormorant-garamond-latin.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url(/static/fonts/inter-latin.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD}@font-face{font-family:'Inter';font-style:normal;font-weight:400 700;font-display:swap;src:url(/static/fonts/inter-greek.woff2) format('woff2');unicode-range:U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF}/* Skip link: hidden until a keyboard user tabs to it, then the first stop on the page. */
+.skip-link { position: absolute; left: 12px; top: -64px; z-index: 1000; padding: 10px 14px;
+  border-radius: 8px; background: #d4a24c; color: #1a130b; font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 12px; }
+main:focus { outline: none; }
+</style>
 
 <style>
   :root {
@@ -411,6 +415,7 @@
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main" onclick="event.preventDefault(); document.getElementById('main').focus();">Skip to content</a>
 <header>
   <div class="brand"><span class="logo serif">♞</span><span class="name">RL&nbsp;Chess&nbsp;Engine</span></div>
   <nav>
@@ -421,7 +426,7 @@
   </nav>
 </header>
 
-<main>
+<main id="main" tabindex="-1">
   <!-- ===================== HOME ===================== -->
   <section id="home" class="view active">
     <div class="hero">
@@ -436,7 +441,7 @@
     </div>
 
     <a class="preview" href="#play" aria-label="Open the Play tab">
-      <img src="static/play_preview.webp" width="1600" height="982" decoding="async"
+      <img src="static/play_preview.webp" width="1600" height="982" decoding="async" fetchpriority="high"
            alt="The Play tab mid-game: the engine's top three recommended moves with evaluations, the move list, a vertical evaluation bar beside a wooden board, and the game controls." />
     </a>
     <p class="preview-caption">The default opponent pairs the self-taught network with a small
@@ -755,6 +760,8 @@
   <a href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">GitHub</a>
   &nbsp;·&nbsp; Built by <a href="https://danny-397.github.io/">Dan Lichtenberger</a></footer>
 
+<!-- chess.js sits here, not in <head>: there it blocked first paint (~0.9 s on mobile). It must still run before the inline script. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script>
 // ----------------------------- tab switching -----------------------------
 const views = document.querySelectorAll('.view');
