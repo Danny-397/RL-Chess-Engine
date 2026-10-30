@@ -30,11 +30,12 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import chess
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import search
 
@@ -82,6 +83,14 @@ def _analyse(req: PositionRequest) -> dict:
 def index() -> FileResponse:
     """Serve the single-page board UI."""
     return FileResponse(os.path.join(_STATIC_DIR, "index.html"))
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error(request: Request, exc: StarletteHTTPException):
+    """A real page for browsers that hit a missing URL; JSON for everyone else."""
+    if exc.status_code == 404 and "text/html" in request.headers.get("accept", ""):
+        return FileResponse(os.path.join(_STATIC_DIR, "404.html"), status_code=404)
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 
 @app.get("/health")
