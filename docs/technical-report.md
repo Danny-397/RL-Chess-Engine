@@ -11,7 +11,7 @@
 
 ## 1. Abstract
 
-I implemented an AlphaZero-style chess engine from first principles in ~3,200 lines
+I implemented an AlphaZero-style chess engine from first principles in ~4,200 lines
 of Python and PyTorch — the policy/value network, PUCT Monte-Carlo Tree Search, and
 the self-play training loop — with **no reinforcement-learning libraries**;
 `python-chess` supplies only the rules. The machinery works: training drives the
@@ -102,7 +102,7 @@ The draw cycle (§6) is what happens when one link — the value target — dege
 
 ## 4. Method / Implementation
 
-The system is ~3,200 lines of Python + PyTorch with no reinforcement-learning
+The system is ~4,200 lines of Python + PyTorch with no reinforcement-learning
 libraries; `python-chess` is used only for the rules (legal-move generation and
 terminal-state detection), so all intellectual effort sits in the encoding, the
 network, the search, and the training loop.
@@ -481,7 +481,7 @@ certainly taught me more.
 ## 10. Reproducibility
 
 **Repository.** <https://github.com/Danny-397/RL-Chess-Engine> (MIT). The code is
-~3,200 lines; the 39-test suite runs in CI on every push.
+~4,200 lines (excluding tests); the 41-test suite runs in CI on every push.
 
 **Environment.** `pip install -r requirements-train.txt` (adds PyTorch to the
 light runtime deps in `requirements.txt`). The GPU results in §5 were produced on

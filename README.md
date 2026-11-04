@@ -47,7 +47,7 @@ me, and why I ended up shipping *two* engines — see [**docs/reflection.md**](d
 - **Reinforcement learning from scratch** — the full AlphaZero loop (network ↔ search ↔ self-play), no RL libraries.
 - **Search algorithms** — PUCT Monte-Carlo Tree Search *and* a classical alpha-beta engine (negamax, quiescence, piece-square evaluation).
 - **Deep learning in PyTorch** — a dual-headed residual CNN, custom loss, training loop and checkpointing.
-- **Software engineering** — modular design, a 39-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
+- **Software engineering** — modular design, a 41-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
 - **Engineering judgement** — diagnosing and solving real problems under real constraints (see *Engineering decisions & challenges* below).
 
 ---
@@ -359,9 +359,10 @@ what Experiment C tests (`python run_experiment.py --device cuda --only-combined
 The `config.py` default is now `0.30`; see [docs/technical-report.md §5.3](docs/technical-report.md)
 for the full analysis and [docs/experiment-results.md](docs/experiment-results.md) for all numbers.
 
-> This is exactly why the **live demo plays via the classical alpha-beta engine** — it
-> gives a genuinely strong opponent today, while the neural network above remains the
-> from-scratch *learning* project.
+> This is why the live demo's **default opponent pairs the trained network with a classical
+> search**: the search keeps it from hanging pieces, and the network breaks ties between
+> near-equal moves. The raw network and the full-strength classical engine are one click
+> away in the **Opponent** selector.
 
 **To reproduce**, run `python run_experiment.py --device cuda` (all three stages, resumable).
 A ready-made Kaggle notebook is included in `notebooks/`.
@@ -455,7 +456,6 @@ this one ran into, and how they were solved:
 
 - Train the network to real strength on a GPU (a one-click [Colab notebook](notebooks/train_on_colab.ipynb)
   is included) and publish the Elo-vs-iterations curve.
-- Let the live demo optionally play the *trained network* alongside the classical engine.
 - Batched MCTS leaf evaluation to make GPU self-play far faster.
 - Add move-history planes to the board encoding (full AlphaZero repetition handling).
 
