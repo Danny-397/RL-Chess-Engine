@@ -1,0 +1,537 @@
+{
+ "source": "Kaggle 2x T4 run, 2026-07-14; transcribed from captured stdout (see docs/experiment-results.md, Provenance)",
+ "eval": "each checkpoint: 50 games vs RandomAgent, 50 MCTS sims/move, colours alternated, 200-move cap; the network's search used the stage's own material_weight",
+ "stages": {
+  "baseline": {
+   "iterations": 10,
+   "games_per_iter": 10,
+   "sims_per_move": 100,
+   "material_weight": 0.0,
+   "self_play_termination": [
+    {
+     "iter": 1,
+     "checkmate": 6,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 0,
+     "fifty_move": 0,
+     "move_cap": 4
+    },
+    {
+     "iter": 2,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 8,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 3,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 4,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 5,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 6,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 7,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 8,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 9,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 10,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    }
+   ],
+   "eval_checkpoints": [
+    {
+     "iter": 2,
+     "wins": 2,
+     "draws": 43,
+     "losses": 5
+    },
+    {
+     "iter": 4,
+     "wins": 0,
+     "draws": 44,
+     "losses": 6
+    },
+    {
+     "iter": 6,
+     "wins": 3,
+     "draws": 42,
+     "losses": 5
+    },
+    {
+     "iter": 8,
+     "wins": 1,
+     "draws": 45,
+     "losses": 4
+    },
+    {
+     "iter": 10,
+     "wins": 2,
+     "draws": 44,
+     "losses": 4
+    }
+   ],
+   "final_eval_elo": -21,
+   "final_eval_wdl": null
+  },
+  "scaled": {
+   "iterations": 25,
+   "games_per_iter": 40,
+   "sims_per_move": 160,
+   "material_weight": 0.0,
+   "self_play_termination": [
+    {
+     "iter": 1,
+     "checkmate": 29,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 0,
+     "fifty_move": 0,
+     "move_cap": 11
+    },
+    {
+     "iter": 2,
+     "checkmate": 11,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 29,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 3,
+     "checkmate": 10,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 30,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 4,
+     "checkmate": 5,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 34,
+     "fifty_move": 0,
+     "move_cap": 1
+    },
+    {
+     "iter": 5,
+     "checkmate": 9,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 31,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 6,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 36,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 7,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 36,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 8,
+     "checkmate": 3,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 37,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 9,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 35,
+     "fifty_move": 0,
+     "move_cap": 1
+    },
+    {
+     "iter": 10,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 38,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 11,
+     "checkmate": 5,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 35,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 12,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 36,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 13,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 36,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 14,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 39,
+     "fifty_move": 0,
+     "move_cap": 1
+    },
+    {
+     "iter": 15,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 38,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 16,
+     "checkmate": 1,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 39,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 17,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 36,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 18,
+     "checkmate": 4,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 36,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 19,
+     "checkmate": 1,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 39,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 20,
+     "checkmate": 3,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 37,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 21,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 38,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 22,
+     "checkmate": 5,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 35,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 23,
+     "checkmate": 1,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 39,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 24,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 40,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 25,
+     "checkmate": 3,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 37,
+     "fifty_move": 0,
+     "move_cap": 0
+    }
+   ],
+   "eval_checkpoints": [
+    {
+     "iter": 5,
+     "wins": 8,
+     "draws": 40,
+     "losses": 2
+    },
+    {
+     "iter": 10,
+     "wins": 8,
+     "draws": 39,
+     "losses": 3
+    },
+    {
+     "iter": 15,
+     "wins": 0,
+     "draws": 47,
+     "losses": 3
+    },
+    {
+     "iter": 20,
+     "wins": 6,
+     "draws": 40,
+     "losses": 4
+    },
+    {
+     "iter": 25,
+     "wins": 3,
+     "draws": 41,
+     "losses": 6
+    }
+   ],
+   "final_eval_elo": -7,
+   "final_eval_wdl": null
+  },
+  "assisted": {
+   "iterations": 10,
+   "games_per_iter": 10,
+   "sims_per_move": 100,
+   "material_weight": 0.3,
+   "self_play_termination": [
+    {
+     "iter": 1,
+     "checkmate": 5,
+     "stalemate": 0,
+     "insufficient": 2,
+     "repetition": 1,
+     "fifty_move": 0,
+     "move_cap": 2
+    },
+    {
+     "iter": 2,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 7,
+     "fifty_move": 0,
+     "move_cap": 1
+    },
+    {
+     "iter": 3,
+     "checkmate": 1,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 9,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 4,
+     "checkmate": 1,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 9,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 5,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 8,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 6,
+     "checkmate": 0,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 10,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 7,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 7,
+     "fifty_move": 0,
+     "move_cap": 1
+    },
+    {
+     "iter": 8,
+     "checkmate": 2,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 7,
+     "fifty_move": 0,
+     "move_cap": 1
+    },
+    {
+     "iter": 9,
+     "checkmate": 1,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 9,
+     "fifty_move": 0,
+     "move_cap": 0
+    },
+    {
+     "iter": 10,
+     "checkmate": 3,
+     "stalemate": 0,
+     "insufficient": 0,
+     "repetition": 7,
+     "fifty_move": 0,
+     "move_cap": 0
+    }
+   ],
+   "eval_checkpoints": [
+    {
+     "iter": 2,
+     "wins": 6,
+     "draws": 39,
+     "losses": 5
+    },
+    {
+     "iter": 4,
+     "wins": 6,
+     "draws": 40,
+     "losses": 4
+    },
+    {
+     "iter": 6,
+     "wins": 5,
+     "draws": 42,
+     "losses": 3
+    },
+    {
+     "iter": 8,
+     "wins": 7,
+     "draws": 40,
+     "losses": 3
+    },
+    {
+     "iter": 10,
+     "wins": 10,
+     "draws": 36,
+     "losses": 4
+    }
+   ],
+   "final_eval_elo": 28,
+   "final_eval_wdl": null
+  }
+ }
+}

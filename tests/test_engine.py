@@ -29,7 +29,7 @@ from model import ChessNet
 from mcts import MCTS, action_probabilities
 from self_play import play_game, generate_self_play_data
 from evaluation import (
-    NetworkAgent, RandomAgent, play_match, elo_difference,
+    MatchResult, NetworkAgent, RandomAgent, play_match, elo_difference,
 )
 from analysis import analyze_position, value_to_win_probability
 import search
@@ -332,6 +332,36 @@ def test_play_match_tallies_all_games():
     assert result.games == 4
     assert result.wins + result.draws + result.losses == 4
     assert 0.0 <= result.score <= 1.0
+
+
+def test_score_interval_matches_a_hand_computed_case():
+    """10 wins, 36 draws, 4 losses: score .56, per-game sd .2577, n = 50."""
+    m = MatchResult(10, 36, 4, [])
+    lo, hi = m.score_interval()
+    half = 1.96 * 0.25768 / 50 ** 0.5
+    assert lo == pytest.approx(0.56 - half, abs=1e-3)
+    assert hi == pytest.approx(0.56 + half, abs=1e-3)
+    elo_lo, elo_hi = m.elo_interval()
+    assert elo_lo < m.elo_difference < elo_hi
+
+
+def test_score_interval_shrinks_with_more_games_and_more_draws():
+    """Same score, 4x the games -> half the width; all draws -> zero width."""
+    small, big = MatchResult(5, 0, 5, []), MatchResult(20, 0, 20, [])
+    w = lambda m: m.score_interval()[1] - m.score_interval()[0]
+    assert w(big) == pytest.approx(w(small) / 2, rel=1e-6)
+    assert w(MatchResult(0, 10, 0, [])) == pytest.approx(0.0)
+
+
+def test_network_agent_can_override_the_material_weight():
+    """Evaluating 'the network alone' must not inherit the training-time blend."""
+    cfg = _fast_config()
+    cfg.mcts.material_weight = 0.3
+    net = ChessNet(cfg.network)
+    assert NetworkAgent(net, cfg).mcts.config.material_weight == pytest.approx(0.3)
+    pure = NetworkAgent(net, cfg, material_weight=0.0)
+    assert pure.mcts.config.material_weight == 0.0
+    assert cfg.mcts.material_weight == pytest.approx(0.3)   # shared config untouched
 
 
 # --------------------------------------------------------------------------- #
