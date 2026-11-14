@@ -16,6 +16,39 @@
 
 ![The draw cycle — non-decisive rate and Elo vs. random across the three stages](../assets/draw_cycle.png)
 
+*Rebuilt by [`tools/plot_draw_cycle.py`](../tools/plot_draw_cycle.py) from
+[`data/gpu_run_2026-07-14.json`](data/gpu_run_2026-07-14.json) (this file's tables, machine-readable)
+and [`data/start_network_control.json`](data/start_network_control.json).*
+
+> **Re-analysis, 2026-11-14 — read this first.** The original conclusions below
+> ("the signal lever flips Elo from −21 to +28; the draw cycle is primarily a
+> signal problem") do not survive a closer look:
+>
+> 1. **Confound.** Each network was evaluated with the search it trained under, so
+>    the assisted network's Elo was measured *with* the material heuristic in its
+>    search and the baseline's without. Arms were never compared under the same search.
+> 2. **No starting-network reference.** All three arms trained from the same seed-42
+>    initial network. Rebuilt and evaluated under the same settings, it scores
+>    **0 (95% CI −31, +31)** against random with `material_weight = 0` and
+>    **−10 (−31, +10)** with 0.30 ([`tools/no_learning_control.py`](../tools/no_learning_control.py),
+>    [data](data/start_network_control.json)). The heuristic on its own does not beat random.
+> 3. **No intervals.** A 50-game match against random is about ±40 Elo at 95%, and
+>    untrained networks alone span −7 to +120 Elo across init seeds
+>    ([data](data/no_learning_control.json)).
+>
+> Change against the starting network, pooling each arm's five checkpoints (250 games):
+>
+> | Arm | Trained, pooled | Starting network | Change (95% CI) |
+> |---|---|---|---|
+> | baseline | −22 (−38, −7) | 0 (w = 0) | −22 (−56, +12) |
+> | scaled (10×) | +10 (−8, +28) | 0 (w = 0) | +10 (−26, +45) |
+> | assisted | +21 (+1, +41) | −10 (w = 0.30) | **+31 (+3, +60)** |
+>
+> What holds: the draw cycle in self-play (the termination tables in §A are unaffected),
+> and a small, marginal gain for the assisted arm over its own start, from one training
+> seed. Neither unassisted arm measurably changed strength. The repo assumes the code was
+> unchanged between this run and the first commit (2026-07-18), which is when history begins.
+
 ## Run configuration
 
 All three stages share the identical code and network (4 residual blocks, 64
@@ -46,9 +79,10 @@ differ sharply (see §A).
 | baseline | 100 | 100 | 100% / 92% | −21 |
 | scaled | 1,000 | 160 | 92% / 88% | −7 |
 
-**Result.** 10× the self-play raises Elo (−21 → −7) and produces more checkmates in
-aggregate (8/100 = 8% → 120/1000 = 12%), but the cycle is not broken: the network
-still cannot reliably convert, and Elo stays negative.
+**Result.** 10× the self-play produces more checkmates in aggregate (8/100 = 8% →
+120/1000 = 12%), but the cycle is not broken. The Elo difference (−21 → −7 on the final
+50-game matches) is well inside the ±40 Elo noise of a single match; against the starting
+network the scaled arm's change is +10 (95% CI −26, +45).
 
 ### Experiment B — self-play signal at fixed compute (same budget as baseline)
 
@@ -58,14 +92,16 @@ still cannot reliably convert, and Elo stays negative.
 | assisted | 100 | 100 | 0.30 | 70% / 81% | +28 |
 
 **Result.** Blending a 0.30 material term into self-play leaf evaluation — at the
-*same* compute as the baseline — drops the final-iteration non-decisive rate to 70%,
-raises the aggregate checkmate count to 19/100, and flips Elo from −21 to **+28**.
-The engine now beats random. This is the more cost-effective lever.
+*same* compute as the baseline — drops the final-iteration non-decisive rate to 70% and
+raises the aggregate checkmate count to 19/100. (The heuristic is active during self-play,
+so some of those checkmates come from it directly.) The Elo comparison with the baseline
+is confounded, because the two were evaluated with different searches; against its own
+starting network under the same search, the assisted arm gained +31 Elo (95% CI +3, +60).
 
 ### Reading the two together
-Both levers move the metrics, so the plateau is driven by **both** limited compute
-*and* an impoverished self-play signal (the "yes | yes" row of the §5.3 reading
-matrix) — but the signal lever does more per unit of compute.
+Only the assisted arm shows a measurable strength gain over its starting point, and only
+just. This run cannot rank the two levers: one training seed per arm, and the arms differ
+by less than seed-to-seed variation.
 
 ---
 
@@ -162,33 +198,33 @@ during training at the stage's `eval_every` interval. W/D/L are the raw counts.
 
 ### Baseline (every 2 iters)
 
-| Iter | W | D | L | Score | Elo |
-|---|---|---|---|---|---|
-| 2 | 2 | 43 | 5 | 47.0% | −21 |
-| 4 | 0 | 44 | 6 | 44.0% | −42 |
-| 6 | 3 | 42 | 5 | 48.0% | −14 |
-| 8 | 1 | 45 | 4 | 47.0% | −21 |
-| 10 | 2 | 44 | 4 | 48.0% | −14 |
+| Iter | W | D | L | Score | Elo | 95% CI |
+|---|---|---|---|---|---|---|
+| 2 | 2 | 43 | 5 | 47.0% | −21 | −57 to +15 |
+| 4 | 0 | 44 | 6 | 44.0% | −42 | −74 to −10 |
+| 6 | 3 | 42 | 5 | 48.0% | −14 | −53 to +24 |
+| 8 | 1 | 45 | 4 | 47.0% | −21 | −51 to +9 |
+| 10 | 2 | 44 | 4 | 48.0% | −14 | −47 to +19 |
 
 ### Scaled (every 5 iters)
 
-| Iter | W | D | L | Score | Elo |
-|---|---|---|---|---|---|
-| 5 | 8 | 40 | 2 | 56.0% | +42 |
-| 10 | 8 | 39 | 3 | 55.0% | +35 |
-| 15 | 0 | 47 | 3 | 47.0% | −21 |
-| 20 | 6 | 40 | 4 | 52.0% | +14 |
-| 25 | 3 | 41 | 6 | 47.0% | −21 |
+| Iter | W | D | L | Score | Elo | 95% CI |
+|---|---|---|---|---|---|---|
+| 5 | 8 | 40 | 2 | 56.0% | +42 | +0 to +85 |
+| 10 | 8 | 39 | 3 | 55.0% | +35 | −9 to +80 |
+| 15 | 0 | 47 | 3 | 47.0% | −21 | −44 to +2 |
+| 20 | 6 | 40 | 4 | 52.0% | +14 | −29 to +57 |
+| 25 | 3 | 41 | 6 | 47.0% | −21 | −62 to +20 |
 
 ### Assisted (every 2 iters)
 
-| Iter | W | D | L | Score | Elo |
-|---|---|---|---|---|---|
-| 2 | 6 | 39 | 5 | 51.0% | +7 |
-| 4 | 6 | 40 | 4 | 52.0% | +14 |
-| 6 | 5 | 42 | 3 | 52.0% | +14 |
-| 8 | 7 | 40 | 3 | 54.0% | +28 |
-| 10 | 10 | 36 | 4 | 56.0% | +42 |
+| Iter | W | D | L | Score | Elo | 95% CI |
+|---|---|---|---|---|---|---|
+| 2 | 6 | 39 | 5 | 51.0% | +7 | −38 to +52 |
+| 4 | 6 | 40 | 4 | 52.0% | +14 | −29 to +57 |
+| 6 | 5 | 42 | 3 | 52.0% | +14 | −24 to +53 |
+| 8 | 7 | 40 | 3 | 54.0% | +28 | −15 to +71 |
+| 10 | 10 | 36 | 4 | 56.0% | +42 | −8 to +94 |
 
 **Final stand-alone evaluation** (a separate 50-game match after training; only the
 Elo survives in the logs — the W/D/L split was not captured):
@@ -201,7 +237,7 @@ scaled's iter-25 checkpoint read −21 but its final match read −7) — indepe
 
 ## C. Training loss
 
-![Training dynamics of the scaled run — policy, value, and total loss](../assets/training_progress.png)
+*(The loss figure previously shown here could not be traced to this run: it has 12 iterations, and none of the three arms has 12. It was removed; only the start and end values below were transcribed.)*
 
 Total loss = policy cross-entropy + value MSE. Start (iter 1) → end (final iter):
 
@@ -221,27 +257,21 @@ draw-cycle signature (technical report §6), not a training success.*
 
 ## Key findings
 
-1. **The draw cycle is real and self-reinforcing.** At baseline compute the
-   near-random network scores a few accidental mates in iters 1–2, then collapses to
-   100% repetition draws from iter 3 on — the value target flattens to ≈0 and the
-   cycle locks in.
-2. **Compute helps, but does not break it.** 10× the self-play (100 → 1,000 games)
-   lifts Elo (−21 → −7) and keeps a residual checkmate rate alive (8% → 12%
-   aggregate), yet Elo stays negative and the non-decisive rate stays in the high
-   80s/90s%.
-3. **Signal quality is the more efficient lever.** `material_weight = 0.30` in
-   self-play — at the *same* baseline compute — drops the final-iteration
-   non-decisive rate to 70%, keeps checkmates appearing throughout training
-   (19/100 aggregate), and flips Elo to **+28**. The engine beats random.
-4. **Both levers help** ("yes | yes" in the §5.3 reading matrix): compute helps
-   *and* signal helps, each measured on its own. Whether they *compound* (stacking
-   them beats either alone) is untested until a combined scaled-plus-assisted run;
-   it is ready to run on Kaggle as [`notebooks/experiment_c.ipynb`](../notebooks/experiment_c.ipynb)
-   (`python run_experiment.py --device cuda --only-combined`).
-5. **`material_weight = 0.30` is the recommended self-play default**, now set via
-   `MCTSConfig.material_weight` and exposed as `run_experiment.py --assist-weight`.
-
----
+1. **The draw cycle is real and self-reinforcing.** At baseline compute the network
+   scores a few accidental mates in iters 1–2, then 100% of self-play games end in
+   threefold repetition from iter 3 on, and the value loss collapses toward 0.
+2. **10× compute does not break it.** Aggregate checkmates rise from 8% to 12%; the
+   non-decisive rate stays in the high 80s/90s, and strength against random is
+   indistinguishable from the starting network (+10, 95% CI −26, +45).
+3. **The material assist keeps decisive games in self-play** (19% checkmates, final
+   iteration 30%) and is the only arm with a measurable gain over its start: +31 Elo
+   (95% CI +3, +60), from a single training seed.
+4. **The original headline is withdrawn.** "Signal, not compute: −21 → +28" compared
+   arms evaluated under different searches, without a starting-network reference or
+   intervals (see the re-analysis note at the top).
+5. **What would settle it:** three training seeds per arm, every network also evaluated
+   with `material_weight = 0`, and the combined arm. `run_experiment.py --seed N` now
+   writes each seed to its own directory and evaluates every arm both ways.
 
 ## Reproducibility
 

@@ -20,10 +20,11 @@ abstract: >-
   self-play training loop, with strength measured as Elo against fixed
   opponents and colours alternated so first-move advantage cannot be mistaken
   for learning. The honest result is the point of the write-up: at the compute
-  available the agent remains weak, and the experiments separate the two
-  candidate causes — insufficient search and an impoverished self-play signal —
-  finding the signal the cheaper lever. A "draw cycle" in which self-play
-  collapses into non-decisive games is reported rather than tuned away. The
+  available the agent remains weak. A "draw cycle" in which self-play collapses
+  into threefold repetition is reported rather than tuned away, and each
+  experimental arm is measured against the network it started from, with
+  confidence intervals; only the material-assisted arm shows a measurable,
+  marginal gain, from a single training seed. The
   live demo deliberately plays a torch-free alpha-beta searcher and says so, so
   the deployed site does not imply the network is stronger than it is.
 keywords:

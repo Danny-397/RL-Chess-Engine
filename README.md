@@ -12,10 +12,10 @@
 <p align="center">
   <a href="https://rlchess.xyz/">
     <img src="assets/screenshot_play.png" width="820"
-         alt="Playing the engine at rlchess.xyz — an Italian Game, with a live evaluation bar, the engine's recommended moves, and the self-taught neural network as the opponent." />
+         alt="Playing the engine at rlchess.xyz: a maple and walnut board, an evaluation bar, the engine's suggested moves and the move list." />
   </a>
 </p>
-<p align="center"><em>A hand-built board, a live evaluation bar, and the engine's own recommended moves — playing the self-taught network in the browser.</em></p>
+<p align="center"><em>The Play view at rlchess.xyz: three opponents (the trained network alone, a hybrid search, and a classical alpha-beta engine), with move suggestions and an evaluation bar.</em></p>
 
 A clean, fully-documented implementation of an **AlphaZero-style reinforcement
 learning chess engine**, written from scratch in **Python + PyTorch**.
@@ -47,7 +47,7 @@ me, and why I ended up shipping *two* engines — see [**docs/reflection.md**](d
 - **Reinforcement learning from scratch** — the full AlphaZero loop (network ↔ search ↔ self-play), no RL libraries.
 - **Search algorithms** — PUCT Monte-Carlo Tree Search *and* a classical alpha-beta engine (negamax, quiescence, piece-square evaluation).
 - **Deep learning in PyTorch** — a dual-headed residual CNN, custom loss, training loop and checkpointing.
-- **Software engineering** — modular design, a 41-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
+- **Software engineering** — modular design, a 44-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
 - **Engineering judgement** — diagnosing and solving real problems under real constraints (see *Engineering decisions & challenges* below).
 
 ---
@@ -146,15 +146,14 @@ position as FEN).
 
 > **Which engine plays you** — the web UI has an **Opponent** selector with four choices:
 >
-> - **Neural net + search** *(default)* — the from-scratch **trained value network** guides a
->   small material + quiescence (negamax alpha-beta) search that runs **entirely in your browser**
->   via [onnxruntime-web] — no PyTorch backend. The search guarantees it never hangs a piece; the
->   network's value breaks ties between near-equal moves. Difficulty sets the search depth (1/2/3 ply).
-> - **Neural net (raw · self-taught)** — the *pure* trained network: a 1-ply value lookup with **zero
->   search and no chess knowledge added.** This is the genuine reinforcement-learning artifact — and
->   it is honestly weak (a laptop can't do the millions of self-play games it needs), which is exactly
->   what *How it works* explains.
-> - **Classical (strong)** — the dependency-light alpha-beta searcher ([`search.py`](search.py):
+> - **Hybrid** *(default)* — a material + quiescence negamax search that runs **entirely in your
+>   browser**, with the trained value network (via [onnxruntime-web]) as a tie-break worth at most
+>   40 centipawns. It mostly plays like the search; the network only separates near-equal moves.
+>   Difficulty sets the search depth (1/2/3 ply).
+> - **Network** — the trained value network alone: a 1-ply value lookup with no search and no chess
+>   knowledge added. The shipped weights are `checkpoints/best.pt`, iteration 2 of a short CPU run
+>   (the GPU-trained networks from the experiments were lost with the Kaggle session), so it is weak.
+> - **Classical** — the dependency-light alpha-beta searcher ([`search.py`](search.py):
 >   negamax, quiescence, piece-square tables, endgame mop-up), served by the backend. It plays sound
 >   chess and beats the random baseline 10–0. Against Stockfish 19 held to `UCI_Elo 1320` (0.1 s/move),
 >   the **Easy** setting (depth 2) scored **14 wins, 8 draws, 8 losses**: an estimated **~1390**
@@ -162,7 +161,7 @@ position as FEN).
 >   ([`tools/stockfish_rating.py`](tools/stockfish_rating.py), [result](docs/data/stockfish_rating_d2_e1320.json)).
 >   Normal (depth 3) is stronger but ~20× slower per move and has not been rated yet.
 >   Tune it with `--depth` (CLI) / `RLCHESS_DEPTH` (server).
-> - **Couch play** — two people share the board.
+> - **Two players** — two people share the board.
 >
 > The network runs client-side from [`web/static/model.onnx`](web/static/model.onnx), gated by a
 > **golden self-check** (`model_meta.json`) that confirms the browser's board-encoding matches
@@ -209,11 +208,6 @@ backend. The repo is preconfigured for it:
 To deploy: on [Vercel](https://vercel.com), **Add New → Project**, import this
 repo, and **Deploy** (no settings to change). Open the URL and play.
 
-> This is why the earlier *"main.py does not define a top-level app"* error
-> happened — Vercel was trying to build the **old PyTorch** backend, which was far
-> too big for a serverless function. With the lightweight engine and `api/index.py`
-> exporting `app`, that's resolved.
-
 ### Play against the engine (console)
 
 Play the classical engine straight away (no checkpoint or torch needed):
@@ -232,27 +226,30 @@ You enter moves in standard algebraic notation (`e4`, `Nf3`, `O-O`, `exd5`,
 
 The engine also reports its own win estimate each time it moves.
 
-> The bundled checkpoint is trained only briefly (it's a *demonstration*, not a
-> strong player). Train longer for a tougher opponent.
+> The bundled checkpoint (`checkpoints/best.pt`) is iteration 2 of a short CPU run: a
+> demonstration of the pipeline, not a strong player. Train longer for a tougher opponent.
 
 ### Analyse any position
 
-Get the engine's evaluation and recommended moves for a position without playing
-a whole game — defaults to the opening, or pass any FEN:
+Get the classical engine's evaluation and recommended moves for a position without
+playing a whole game (depth 4 by default, `--depth` to change). It defaults to the
+opening, or pass any FEN:
 
 ```bash
-python main.py --mode analyze --checkpoint checkpoints/best.pt
+python main.py --mode analyze
 python main.py --mode analyze --fen "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 1" --top-n 5
 ```
 
-Example output:
+Output for the starting position:
 
 ```
-Engine eval: +0.18  (win probability for side to move: 59%)
+Engine eval: +0.00  (win probability for side to move: 50%)
 Recommended moves:
-  1. Nf3      62% of search, eval +0.18
-  2. e4       21% of search, eval +0.12
-  3. d4       11% of search, eval +0.09
+  1. Nf3     eval +0.00
+  2. Nc3     eval +0.00
+  3. e4      eval -0.02
+  4. d4      eval -0.02
+  5. e3      eval -0.07
 ```
 
 ### Train your own engine
@@ -334,37 +331,36 @@ fitting the data, and is the engine actually getting stronger?*
 
 ### Training results (and an honest note on scale)
 
-Real **GPU T4 ×2** results — Kaggle, ~9.8 h training, 2026-07-14
-([full data](docs/experiment-results.md)):
+One **GPU** run (Kaggle, 2× T4, ~9.8 h, 2026-07-14), three arms, one training seed each
+([full data](docs/experiment-results.md), [machine-readable](docs/data/gpu_run_2026-07-14.json)):
 
-![The draw cycle: non-decisive rate and Elo vs. random across the baseline, scaled, and material-assisted runs](assets/draw_cycle.png)
+![Left: self-play games not ending in checkmate per iteration. Right: Elo vs random at each checkpoint with 95% intervals, and the starting network as reference lines.](assets/draw_cycle.png)
 
-Two controlled experiments isolate *what* causes the draw-cycle plateau and how to fix it:
-
-| Run | Games | Sims/move | Material w | Non-decisive % | Elo vs random |
+| Arm | Self-play games | Material w | Checkmates in self-play | Elo vs random, pooled | Change vs starting network (95% CI) |
 |---|---|---|---|---|---|
-| baseline | 100 | 100 | 0.00 | 100% | −21 |
-| scaled (10×) | 1 000 | 160 | 0.00 | 92% | −7 |
-| assisted | 100 | 100 | 0.30 | **70%** | **+28** |
+| baseline | 100 | 0.00 | 8% | −22 | −22 (−56, +12) |
+| scaled (10×) | 1,000 | 0.00 | 12% | +10 | +10 (−26, +45) |
+| assisted | 100 | 0.30 | 19% | +21 | **+31 (+3, +60)** |
 
-The policy loss drops sharply as the network learns to imitate its own search, while
-the **value loss collapses toward zero** — the draw-cycle signature ([loss
-curves](assets/training_progress.png)).
+- **The draw cycle is real.** From iteration 3, every baseline self-play game ends in
+  threefold repetition, and the value loss collapses toward zero because the outcome
+  target is 0 almost everywhere. Ten times the self-play leaves 88% of games undecided.
+- **Strength is measured against the network each arm started from** (seed 42, rebuilt
+  by [`tools/no_learning_control.py`](tools/no_learning_control.py)), under the search the
+  arm was evaluated with. Only the material-assisted arm shows a measurable gain, and only
+  just, from one seed.
+- **Correction (2026-11-14).** An earlier version of this README said the assist "flips Elo
+  from −21 to +28" and that the plateau is "primarily a signal problem." That compared arms
+  evaluated with different searches (the assisted network had the material heuristic in its
+  search at evaluation time), with no starting-network reference and no intervals. The
+  untrained-network controls also show initialisation alone moves Elo vs random by over 100
+  points across seeds. See [technical report §5.4](docs/technical-report.md).
 
-**The draw cycle is primarily a self-play signal problem, not a compute ceiling.**
-Blending `material_weight = 0.30` into self-play leaf evaluation drops the
-non-decisive rate from 100% to 70% and flips Elo from −21 to +28 — at the
-*same* baseline compute budget. Each lever helps on its own; whether they compound is
-what Experiment C tests (`python run_experiment.py --device cuda --only-combined`).
-The `config.py` default is now `0.30`; see [docs/technical-report.md §5.3](docs/technical-report.md)
-for the full analysis and [docs/experiment-results.md](docs/experiment-results.md) for all numbers.
+Settling it takes three training seeds per arm: `python run_experiment.py --device cuda --seed N`
+writes each seed to its own directory and evaluates every assisted arm with and without the
+material blend.
 
-> This is why the live demo's **default opponent pairs the trained network with a classical
-> search**: the search keeps it from hanging pieces, and the network breaks ties between
-> near-equal moves. The raw network and the full-strength classical engine are one click
-> away in the **Opponent** selector.
-
-**To reproduce**, run `python run_experiment.py --device cuda` (all three stages, resumable).
+**To reproduce** the original run, `python run_experiment.py --device cuda` (all three stages, resumable).
 A ready-made Kaggle notebook is included in `notebooks/`.
 
 ---
@@ -425,8 +421,8 @@ The interesting part of a project is rarely the happy path. A few real problems
 this one ran into, and how they were solved:
 
 - **The "draw cycle."** An *under-trained* network + MCTS won material but couldn't
-  convert — it shuffled winning positions into threefold-repetition draws (it drew
-  the random baseline 50%). Diagnosing this (logging *why* each game ended) showed
+  convert — self-play games ended in threefold repetition, and against a random-move
+  opponent it drew 84–90% of games. Diagnosing this (logging *why* each game ended) showed
   the value head only ever saw drawn outcomes, so it never learned what *winning*
   looked like. **Decision:** for the playable demo, add a dependency-light classical
   **alpha-beta engine** (`search.py`) that plays sound chess *today* (it beats the

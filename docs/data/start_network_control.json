@@ -1,0 +1,57 @@
+{
+  "what": "untrained (random-init) ChessNet + MCTS vs RandomAgent",
+  "network": "4 residual blocks x 64 channels, random init, no training",
+  "sims_per_move": 50,
+  "max_moves": 200,
+  "seeds": [
+    42
+  ],
+  "games_per_seed": 100,
+  "arms": [
+    {
+      "material_weight": 0.0,
+      "games": 100,
+      "wins": 10,
+      "draws": 80,
+      "losses": 10,
+      "score": 0.5,
+      "elo": 0,
+      "elo_95ci": [
+        -31,
+        31
+      ],
+      "per_seed": [
+        {
+          "seed": 42,
+          "wins": 10,
+          "draws": 80,
+          "losses": 10,
+          "seconds": 3154.1
+        }
+      ]
+    },
+    {
+      "material_weight": 0.3,
+      "games": 100,
+      "wins": 3,
+      "draws": 91,
+      "losses": 6,
+      "score": 0.485,
+      "elo": -10,
+      "elo_95ci": [
+        -31,
+        10
+      ],
+      "per_seed": [
+        {
+          "seed": 42,
+          "wins": 3,
+          "draws": 91,
+          "losses": 6,
+          "seconds": 2967.6
+        }
+      ]
+    }
+  ],
+  "seconds": 3160
+}

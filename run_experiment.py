@@ -16,7 +16,7 @@ If the scaled run's non-decisive rate falls and its Elo rises where the baseline
 flatlines, the "plateau is a compute ceiling, not a bug" hypothesis is supported.
 
 The script writes all artifacts under ``experiment_out/`` and a ready-to-paste
-results file at ``docs/experiment-results.md``. It is **resumable**: each stage
+results file at ``experiment_out/experiment-results.generated.md``. It is **resumable**: each stage
 drops a ``<stage>.result.json`` marker and is skipped on re-run, so a dropped
 Colab session can just re-run the same command.
 
@@ -128,6 +128,16 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
     print(f"[{name}] evaluating vs random ({eval_games} games)...")
     match = evaluate_against_random(model, cfg, num_games=eval_games,
                                     num_simulations=eval_sims)
+    # The network alone. A stage that trains with a material blend would
+    # otherwise be judged with the heuristic still inside its search, which
+    # credits the heuristic's strength to learning (the original Experiment B
+    # confound). Every stage is therefore also measured with the blend off.
+    if cfg.mcts.material_weight > 0.0:
+        print(f"[{name}] evaluating the network alone (material_weight=0)...")
+        pure = evaluate_against_random(model, cfg, num_games=eval_games,
+                                       num_simulations=eval_sims, material_weight=0.0)
+    else:
+        pure = match
 
     # Archive this stage's PGNs and training log, then analyse the games.
     pgn_dst = os.path.join(OUT_DIR, f"pgn_{name}")
@@ -161,6 +171,13 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
         "eval_losses": match.losses,
         "eval_score": round(match.score, 4),
         "elo_vs_random": round(match.elo_difference, 1),
+        "elo_vs_random_95ci": [round(x, 1) for x in match.elo_interval()],
+        "pure_eval_wins": pure.wins,
+        "pure_eval_draws": pure.draws,
+        "pure_eval_losses": pure.losses,
+        "pure_elo_vs_random": round(pure.elo_difference, 1),
+        "pure_elo_vs_random_95ci": [round(x, 1) for x in pure.elo_interval()],
+        "seed": cfg.training.seed,
         "train_seconds": round(train_secs, 1),
     }
     with open(marker, "w", encoding="utf-8") as fh:
@@ -372,8 +389,10 @@ Charts: `assets/term_baseline.png`, `assets/term_scaled.png`, `assets/term_assis
 and the matching `assets/progress_*.png`.
 Raw CSVs: `experiment_out/term_baseline.csv`, `term_scaled.csv`, `term_assisted.csv`.
 """
-    os.makedirs("docs", exist_ok=True)
-    path = os.path.join("docs", "experiment-results.md")
+    # Never docs/experiment-results.md: that file is the transcribed record of
+    # the 2026-07-14 GPU run, and a rerun (even --quick) used to overwrite it.
+    os.makedirs(OUT_DIR, exist_ok=True)
+    path = os.path.join(OUT_DIR, "experiment-results.generated.md")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(md)
     return path
@@ -415,7 +434,15 @@ def main() -> None:
     # eval knobs
     p.add_argument("--eval-games", type=int, default=50)
     p.add_argument("--eval-sims", type=int, default=50)
+    p.add_argument("--seed", type=int, default=None,
+                   help="Training seed for every stage. Each seed writes to its own "
+                        "experiment_out/seed<N>/, so seeds can be run side by side and "
+                        "compared; one seed per arm cannot separate the arms from noise.")
     args = p.parse_args()
+
+    global OUT_DIR
+    if args.seed is not None:
+        OUT_DIR = os.path.join(OUT_DIR, f"seed{args.seed}")
 
     if args.quick:
         args.device = "cpu"
@@ -460,6 +487,10 @@ def main() -> None:
         args.workers, eval_every=max(1, args.scaled_iters // 5),
         eval_games=args.eval_games, eval_sims=args.eval_sims,
         material_weight=args.assist_weight)
+
+    if args.seed is not None:
+        for c in (baseline_cfg, scaled_cfg, assisted_cfg, combined_cfg):
+            c.training.seed = args.seed
 
     if args.only_combined:
         combined = run_stage("combined", combined_cfg, args.eval_games, args.eval_sims)

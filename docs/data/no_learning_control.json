@@ -1,0 +1,87 @@
+{
+  "what": "untrained (random-init) ChessNet + MCTS vs RandomAgent",
+  "network": "4 residual blocks x 64 channels, random init, no training",
+  "sims_per_move": 50,
+  "max_moves": 200,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "games_per_seed": 50,
+  "arms": [
+    {
+      "material_weight": 0.0,
+      "games": 150,
+      "wins": 41,
+      "draws": 98,
+      "losses": 11,
+      "score": 0.6,
+      "elo": 70,
+      "elo_95ci": [
+        39,
+        103
+      ],
+      "per_seed": [
+        {
+          "seed": 1,
+          "wins": 19,
+          "draws": 26,
+          "losses": 5,
+          "seconds": 1382.6
+        },
+        {
+          "seed": 2,
+          "wins": 20,
+          "draws": 27,
+          "losses": 3,
+          "seconds": 1442.6
+        },
+        {
+          "seed": 3,
+          "wins": 2,
+          "draws": 45,
+          "losses": 3,
+          "seconds": 1285.8
+        }
+      ]
+    },
+    {
+      "material_weight": 0.3,
+      "games": 150,
+      "wins": 7,
+      "draws": 137,
+      "losses": 6,
+      "score": 0.5033,
+      "elo": 2,
+      "elo_95ci": [
+        -14,
+        19
+      ],
+      "per_seed": [
+        {
+          "seed": 1,
+          "wins": 2,
+          "draws": 45,
+          "losses": 3,
+          "seconds": 1021.0
+        },
+        {
+          "seed": 2,
+          "wins": 1,
+          "draws": 48,
+          "losses": 1,
+          "seconds": 1349.1
+        },
+        {
+          "seed": 3,
+          "wins": 4,
+          "draws": 44,
+          "losses": 2,
+          "seconds": 1278.0
+        }
+      ]
+    }
+  ],
+  "seconds": 3950
+}

@@ -74,6 +74,9 @@ explanation — the one that happens to require nothing of you — is exactly th
 worth testing first. Running the experiment turned a plausible excuse into an
 actual finding, and the finding was more interesting than the excuse.
 
+> **November 2026:** the Elo comparison above does not hold up. See the postscript at
+> the end, "Checking my own experiment."
+
 ## The decision I'm most proud of
 
 I had a website to ship and a neural engine too weak to be a fair opponent. I could
@@ -135,3 +138,26 @@ cycle and the next experiment I'd run.
 - That the honest version of a project — the one that says what works, what
   doesn't, and why — is more interesting than a version that pretends everything
   went to plan. It certainly taught me more.
+
+## Postscript, November 2026: checking my own experiment
+
+The experiment above compared the arms the wrong way. Each network was evaluated with
+the search it trained under, so the assisted network played its evaluation games with
+the material heuristic switched on and the baseline played without it. I never measured
+what the heuristic does on its own, never compared each arm with the network it started
+from, and never put an interval on a 50-game match.
+
+So I went back and did. All three arms trained from the same seed-42 network; rebuilt
+and evaluated under the same settings, it scores 0 Elo against random without the
+heuristic and −10 with it. The heuristic alone doesn't beat random. Measured from that
+starting point, the baseline moved −22 Elo (95% CI −56, +12), the 10× arm +10 (−26, +45),
+and the assisted arm +31 (+3, +60). Untrained networks with different seeds also land
+anywhere from about −7 to +110 against random, which is more spread than any of the
+differences I had been reading meaning into.
+
+What survives is the draw cycle itself, and a small, marginal gain for the assisted arm
+from a single seed. "The draw cycle is primarily a signal problem" does not survive.
+It is the same lesson as the rest of this project, one level up: the most convincing
+explanation still has to be tested against the boring one, and that includes my own
+analysis. The full correction is in [technical report §5.4](technical-report.md).
+

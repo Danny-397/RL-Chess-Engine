@@ -77,6 +77,9 @@ class NetworkAgent:
         num_simulations: optional override for the number of MCTS simulations;
             defaults to ``config.mcts.num_simulations``.
         name: a human-readable label used in match reports.
+        material_weight: optional override for the search's material blend.
+            Pass ``0.0`` to measure the *network* rather than network + a
+            hand-written heuristic; defaults to ``config.mcts.material_weight``.
     """
 
     def __init__(
@@ -85,14 +88,17 @@ class NetworkAgent:
         config: Config,
         num_simulations: Optional[int] = None,
         name: str = "network",
+        material_weight: Optional[float] = None,
     ) -> None:
         self.network = network
         self.name = name
-        # Build a (possibly simulation-overridden) copy of the MCTS config so we
-        # never mutate the shared global configuration.
+        # Build a (possibly overridden) copy of the MCTS config so we never
+        # mutate the shared global configuration.
         mcts_cfg = config.mcts
         if num_simulations is not None:
             mcts_cfg = dataclasses.replace(mcts_cfg, num_simulations=num_simulations)
+        if material_weight is not None:
+            mcts_cfg = dataclasses.replace(mcts_cfg, material_weight=material_weight)
         self.mcts = MCTS(network, mcts_cfg)
 
     def select_move(self, game: ChessGame) -> chess.Move:
@@ -133,6 +139,30 @@ class MatchResult:
     @property
     def elo_difference(self) -> float:
         return elo_difference(self.score)
+
+    def score_interval(self, z: float = 1.96) -> "tuple[float, float]":
+        """Approximate confidence interval for the expected score.
+
+        Each game scores 1, 0.5 or 0, so the per-game variance is estimated
+        from the observed W/D/L split (draws shrink it) and the interval is
+        ``score +/- z * sd / sqrt(games)``, clipped to ``[0, 1]``.  This is
+        the usual normal approximation for engine matches; with 50 games it
+        is about +/- 0.05 for a draw-heavy match, i.e. roughly +/- 35 Elo
+        near an even score.
+        """
+        n = self.games
+        if n == 0:
+            return 0.0, 1.0
+        s = self.score
+        var = (self.wins * (1 - s) ** 2 + self.draws * (0.5 - s) ** 2
+               + self.losses * s ** 2) / n
+        half = z * math.sqrt(var / n)
+        return max(0.0, s - half), min(1.0, s + half)
+
+    def elo_interval(self, z: float = 1.96) -> "tuple[float, float]":
+        """The :meth:`score_interval` mapped through :func:`elo_difference`."""
+        lo, hi = self.score_interval(z)
+        return elo_difference(lo), elo_difference(hi)
 
     def summary(self, a_name: str = "A", b_name: str = "B") -> str:
         """Return a one-line human-readable summary of the match."""
@@ -252,7 +282,8 @@ def play_match(
 
 
 def evaluate_against_random(network, config: Config, num_games: int,
-                            num_simulations: Optional[int] = None) -> MatchResult:
+                            num_simulations: Optional[int] = None,
+                            material_weight: Optional[float] = None) -> MatchResult:
     """Convenience helper: evaluate a network against the random baseline.
 
     Args:
@@ -260,10 +291,13 @@ def evaluate_against_random(network, config: Config, num_games: int,
         config: global configuration.
         num_games: number of games to play.
         num_simulations: optional MCTS simulation override for the network agent.
+        material_weight: optional material-blend override for the network
+            agent's search (``0.0`` = judge the network alone).
 
     Returns:
         The :class:`MatchResult` of network (candidate) vs. random.
     """
-    candidate = NetworkAgent(network, config, num_simulations=num_simulations, name="network")
+    candidate = NetworkAgent(network, config, num_simulations=num_simulations,
+                             name="network", material_weight=material_weight)
     baseline = RandomAgent()
     return play_match(candidate, baseline, config, num_games)
