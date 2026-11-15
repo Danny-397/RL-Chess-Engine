@@ -35,7 +35,7 @@ from typing import List, Optional, Protocol
 import chess
 import chess.pgn
 
-from chess_game import ChessGame
+from chess_game import ChessGame, _raw_material
 from config import Config
 from mcts import MCTS, action_probabilities
 
@@ -66,6 +66,37 @@ class RandomAgent:
 
     def select_move(self, game: ChessGame) -> chess.Move:
         return random.choice(game.legal_moves())
+
+
+class MaterialGreedyAgent:
+    """A one-ply material grabber: mate if it can, else the move that leaves it
+    with the most material, ties broken at random.
+
+    A sturdier yardstick than :class:`RandomAgent`. Random almost never mates
+    and never punishes a hanging piece, so most games against it are drawn and
+    an untrained network's score swings by 100+ Elo with the init seed. This
+    opponent takes every free piece it sees but looks no further, so it is
+    still beatable by any search that looks two plies ahead.
+    """
+
+    def __init__(self, name: str = "greedy") -> None:
+        self.name = name
+
+    def select_move(self, game: ChessGame) -> chess.Move:
+        board = game.board
+        best, best_score = [], -math.inf
+        for move in game.legal_moves():
+            board.push(move)
+            if board.is_checkmate():
+                board.pop()
+                return move
+            score = -_raw_material(board)        # side to move is now the opponent
+            board.pop()
+            if score > best_score:
+                best, best_score = [move], score
+            elif score == best_score:
+                best.append(move)
+        return random.choice(best)
 
 
 class NetworkAgent:
@@ -279,6 +310,15 @@ def play_match(
             print(f"  game {g + 1}/{num_games}: {agent_a.name} ({'W' if a_is_white else 'B'}) -> {outcome}")
 
     return MatchResult(wins=wins, draws=draws, losses=losses, pgns=pgns)
+
+
+def evaluate_against_greedy(network, config: Config, num_games: int,
+                            num_simulations: Optional[int] = None,
+                            material_weight: Optional[float] = None) -> MatchResult:
+    """Like :func:`evaluate_against_random`, against :class:`MaterialGreedyAgent`."""
+    candidate = NetworkAgent(network, config, num_simulations=num_simulations,
+                             name="network", material_weight=material_weight)
+    return play_match(candidate, MaterialGreedyAgent(), config, num_games)
 
 
 def evaluate_against_random(network, config: Config, num_games: int,

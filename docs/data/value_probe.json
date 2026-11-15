@@ -1,0 +1,37 @@
+{
+  "what": "value head on level positions and the same positions with one queen removed (side to move up / down a queen), side-to-move perspective",
+  "positions": 300,
+  "position_seed": 0,
+  "results": [
+    {
+      "mean_value": {
+        "level": -0.1134,
+        "up": -0.1134,
+        "down": -0.1134
+      },
+      "up_minus_down": -0.0,
+      "up_minus_down_95ci": [
+        -0.0001,
+        -0.0
+      ],
+      "share_up_above_down": 0.2433,
+      "value_spread_sd": 0.0006,
+      "network": "untrained (seed 42)"
+    },
+    {
+      "mean_value": {
+        "level": -0.0581,
+        "up": -0.0568,
+        "down": -0.0603
+      },
+      "up_minus_down": 0.0034,
+      "up_minus_down_95ci": [
+        0.0027,
+        0.0041
+      ],
+      "share_up_above_down": 0.73,
+      "value_spread_sd": 0.0199,
+      "network": "checkpoints/best.pt (iteration 2)"
+    }
+  ]
+}

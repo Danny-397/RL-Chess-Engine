@@ -47,7 +47,7 @@ me, and why I ended up shipping *two* engines — see [**docs/reflection.md**](d
 - **Reinforcement learning from scratch** — the full AlphaZero loop (network ↔ search ↔ self-play), no RL libraries.
 - **Search algorithms** — PUCT Monte-Carlo Tree Search *and* a classical alpha-beta engine (negamax, quiescence, piece-square evaluation).
 - **Deep learning in PyTorch** — a dual-headed residual CNN, custom loss, training loop and checkpointing.
-- **Software engineering** — modular design, a 44-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
+- **Software engineering** — modular design, a 50-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
 - **Engineering judgement** — diagnosing and solving real problems under real constraints (see *Engineering decisions & challenges* below).
 
 ---
@@ -356,9 +356,19 @@ One **GPU** run (Kaggle, 2× T4, ~9.8 h, 2026-07-14), three arms, one training s
   untrained-network controls also show initialisation alone moves Elo vs random by over 100
   points across seeds. See [technical report §5.4](docs/technical-report.md).
 
-Settling it takes three training seeds per arm: `python run_experiment.py --device cuda --seed N`
-writes each seed to its own directory and evaluates every assisted arm with and without the
-material blend.
+- **A rule artifact.** Games ended as soon as a repetition could be *claimed* (python-chess
+  allows that when a repeating move is merely available), so the July draw counts are inflated and
+  the search scored such positions as dead draws. Fixed, with `--legacy-draw-claims` to reproduce
+  the old behaviour; the shipped network still ends its self-play games in real repetitions
+  ([report §5.5](docs/technical-report.md)).
+- **The value head, measured directly** ([`tools/value_probe.py`](tools/value_probe.py)): the shipped
+  network scores "up a queen" only 0.003 above "down a queen" on a −1 to +1 scale.
+
+Settling it takes three training seeds per arm, under the corrected rule:
+[`notebooks/seeds_rerun.ipynb`](notebooks/seeds_rerun.ipynb) runs them on a Kaggle T4 (about nine
+hours), measures every network against its own starting network (vs random and vs a one-ply
+material-greedy opponent), probes every value head, and runs one legacy-rule seed to size the
+rule's effect.
 
 **To reproduce** the original run, `python run_experiment.py --device cuda` (all three stages, resumable).
 A ready-made Kaggle notebook is included in `notebooks/`.

@@ -71,11 +71,19 @@ _ITER_RE = re.compile(r"selfplay_iter(\d+)\.pgn$")
 def classify_termination(board: chess.Board) -> str:
     """Classify why a finished self-play game ended, from its final position.
 
-    ``claim_draw=True`` so threefold-repetition and fifty-move *claims* count as
-    draws (self-play stops on them).  A position that is not terminal under the
-    rules means the game was cut off by the self-play length cap.
+    Follows the draw rule self-play used (``chess_game.END_ON_CLAIMABLE_DRAWS``):
+    under the legacy rule a merely *claimable* repetition or fifty-move draw
+    ended the game, so it counts; under the actual rule only a repetition that
+    occurred or a fifty-move counter that reached 100 does.  Anything else that
+    is not terminal was cut off by the self-play length cap.
     """
-    outcome = board.outcome(claim_draw=True)
+    import chess_game
+    if not chess_game.END_ON_CLAIMABLE_DRAWS:
+        if board.is_repetition(3):
+            return "repetition"
+        if board.halfmove_clock >= 100 and not board.is_checkmate():
+            return "fifty_move"
+    outcome = board.outcome(claim_draw=chess_game.END_ON_CLAIMABLE_DRAWS)
     if outcome is None:
         return "max_moves_cap"
 

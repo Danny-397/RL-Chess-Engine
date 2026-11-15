@@ -30,7 +30,10 @@ gain, and only just. Ten times the compute leaves 88% of self-play games undecid
 An earlier version of this report claimed the assist "flips Elo from −21 to +28" and that
 the plateau is "primarily a signal problem." That comparison was confounded (the arms
 were evaluated with different searches), had no starting-network reference and no
-intervals; §5.4 explains the correction and the control experiments behind it. The
+intervals; §5.4 explains the correction and the control experiments behind it. Two later
+checks sharpen the picture: draws were detected with a rule that ended games when a repetition
+was merely available (§5.5, now fixed), and a direct probe of the shipped value head shows it
+barely distinguishes up a queen from down a queen (§5.6). The
 project also ships a deployed web app: a classical alpha-beta engine (about 1390 against
 strength-limited Stockfish) as an honestly labelled opponent, and the trained network
 running in the browser via ONNX behind a JavaScript↔Python encoding self-check.
@@ -219,7 +222,7 @@ down with tests:
   promotions. Tested by `test_move_encoding_roundtrip_white` /
   `_promotions` and `test_move_index_in_range_for_all_legal_start_moves`.
 
-The full suite (44 tests, run in CI) also covers terminal values
+The full suite (50 tests, run in CI) also covers terminal values
 (`test_terminal_value_checkmate`, `test_stalemate_is_a_draw`,
 `test_insufficient_material_is_a_draw`), search behaviour
 (`test_mcts_returns_valid_distribution`, `test_mcts_is_deterministic_without_noise`,
@@ -329,13 +332,71 @@ does not escape it. Neither unassisted arm measurably changed strength. The assi
 gained a little over its own start: +31 Elo, just clear of zero, from one training seed.
 It cannot rank compute against signal; the earlier claim that it could is withdrawn.
 
-### 5.5 What would settle it
+### 5.5 A rule artifact in draw detection
 
-Three training seeds per arm; every network evaluated with `material_weight = 0` as well
-as under its training search; the combined arm (10× compute with the assist); and a
-stronger reference opponent than random once a network can score against one.
-`run_experiment.py --seed N` now writes each seed to its own directory and evaluates every
-assisted arm both ways, so this is one command per seed.
+`ChessGame.is_terminal()` used `board.is_game_over(claim_draw=True)`. In python-chess a
+threefold-repetition claim is valid not only when a position has occurred three times but
+also when the side to move *has a move* that would make it occur a third time (the
+fifty-move claim works the same way). So every self-play and evaluation game in §5.1–§5.4
+ended the moment a repetition became available, before anyone repeated, and the search
+scored every leaf where a repeat was available as a dead draw, even for the side that was
+winning. That is a mechanical push towards the draw cycle, and it inflates the
+"threefold repetition" counts in `experiment-results.md`.
+
+Replaying six self-play games from the shipped checkpoint under the old rule: in five the
+final position had occurred twice, and in one only once. The rule is now the actual one
+(a position has occurred three times, or the fifty-move counter has reached 100), with
+`END_ON_CLAIMABLE_DRAWS` / `--legacy-draw-claims` to reproduce the July run, and tests for
+both. Under the corrected rule the same checkpoint still ends all six games in a real
+threefold repetition, after 25–36 plies, so the behaviour is genuine; how much of the
+*rate* the rule caused is what the seed-1 legacy-rule run in §5.8 measures. All numbers in
+§5.1–§5.4 used the old rule throughout, so their comparisons are internally consistent.
+
+### 5.6 The value head, measured directly
+
+The draw-cycle explanation is a claim about the value head, so `tools/value_probe.py`
+measures it rather than inferring it from the loss. It builds 300 roughly level positions
+(10–40 random plies from the start) and two variants of each with one queen removed, so
+the side to move is up or down a queen, and records the value head's output on all three:
+
+| Network | Up a queen | Level | Down a queen | Up − down (95% CI) |
+|---|---|---|---|---|
+| untrained (seed 42) | −0.113 | −0.113 | −0.113 | −0.000 (−0.000, −0.000) |
+| shipped checkpoint (iteration 2, short CPU run) | −0.057 | −0.058 | −0.060 | +0.003 (+0.003, +0.004) |
+
+On a −1 to +1 scale, being a queen up should read close to +1. The shipped network's value
+head separates the two by 0.003: it has learned almost nothing about material, exactly
+what a value target of 0 everywhere predicts. This is one early checkpoint; §5.8 runs the
+probe on every trained network.
+
+### 5.7 A sturdier yardstick
+
+Random is a weak yardstick here: most games against it are drawn, so an untrained network
+can land anywhere from about −7 to +120 Elo. `evaluation.MaterialGreedyAgent` is a sturdier
+one: it mates when it can, otherwise plays the move that leaves it the most material, and looks
+no further, so any search that sees two plies ahead can beat it. Untrained networks, under the
+corrected draw rule ([`tools/no_learning_control.py --opponent greedy`](../tools/no_learning_control.py)):
+
+| Starting network | Material w | W / D / L | Elo vs greedy (95% CI) |
+|---|---|---|---|
+| seed 42 (100 games) | 0 | 0 / 13 / 87 | −463 (−592, −386) |
+| seed 42 (100 games) | 0.30 | 2 / 47 / 51 | −186 (−238, −141) |
+| seeds 1–3 pooled (150 games) | 0 | 3 / 32 / 115 | −335 (−405, −282) |
+| seeds 1–3 pooled (150 games) | 0.30 | 7 / 57 / 86 | −203 (−252, −161) |
+
+Untrained networks lose most games outright, so there is room to measure improvement and the
+games are mostly decisive. Seed still matters without the blend (per seed, about −460 to −315),
+less with it (−220 to −186); multiple seeds remain necessary. The trained July networks no longer
+exist, so this yardstick applies from the rerun (§5.8) onward.
+
+### 5.8 What would settle it
+
+Three training seeds per arm, under the corrected draw rule; every network evaluated
+against random with and without the material blend and against the greedy opponent; each
+seed's starting network under the same evaluations; the value probe on every trained
+network; and one legacy-rule run for the rule's own effect.
+[`notebooks/seeds_rerun.ipynb`](../notebooks/seeds_rerun.ipynb) does all of this on a
+Kaggle T4 in about nine hours and writes a summary of each arm against its own start.
 
 ---
 
@@ -427,7 +488,9 @@ design.
   transcribed from captured output. Code history begins on 2026-07-18, four days after
   the run, so the seed-42 starting network is reconstructed on the assumption that the
   initialisation code did not change in between.
-- **A weak yardstick.** Random separates broken from working, not good from better.
+- **A weak yardstick.** Random separates broken from working, not good from better
+  (§5.7 adds a greedy opponent).
+- **The draw rule.** All July numbers ended games on a merely claimable repetition (§5.5).
 - **The playable network is not a GPU network.** The site serves `checkpoints/best.pt`,
   iteration 2 of a short CPU run.
 - **Move-history planes (the encoding hypothesis).** Real AlphaZero stacks the last
@@ -458,7 +521,7 @@ marginal gain. The next step is not a bigger run but three seeds per arm.
 ## 10. Reproducibility
 
 **Repository.** <https://github.com/Danny-397/RL-Chess-Engine> (MIT). The code is
-~4,200 lines (excluding tests); the 44-test suite runs in CI on every push.
+~4,200 lines (excluding tests); the 50-test suite runs in CI on every push.
 
 **Environment.** `pip install -r requirements-train.txt` (adds PyTorch to the
 light runtime deps in `requirements.txt`). The GPU results in §5 were produced on

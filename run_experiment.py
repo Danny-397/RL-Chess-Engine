@@ -110,7 +110,7 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
 
     # Import here so a plain --help / --quick dry parse doesn't load torch.
     from training import train
-    from evaluation import evaluate_against_random
+    from evaluation import evaluate_against_greedy, evaluate_against_random
 
     device = cfg.resolved_device()
     print(f"\n=== STAGE: {name}  (device={device}, "
@@ -138,6 +138,15 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
                                        num_simulations=eval_sims, material_weight=0.0)
     else:
         pure = match
+    # A sturdier yardstick than random (see evaluation.MaterialGreedyAgent),
+    # with the network alone, so every arm is judged under the same search.
+    print(f"[{name}] evaluating the network alone vs the material-greedy opponent...")
+    greedy = evaluate_against_greedy(model, cfg, num_games=eval_games,
+                                     num_simulations=eval_sims, material_weight=0.0)
+    # Keep this stage's network: train() writes checkpoints/best.pt, which the
+    # next stage overwrites, and the value probe / web export need each one.
+    stage_ckpt = os.path.join(OUT_DIR, f"{name}.pt")
+    shutil.copy(os.path.join(cfg.training.checkpoint_dir, "best.pt"), stage_ckpt)
 
     # Archive this stage's PGNs and training log, then analyse the games.
     pgn_dst = os.path.join(OUT_DIR, f"pgn_{name}")
@@ -150,8 +159,8 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
     per_iter = asp.analyse_dir(pgn_dst)
     asp.print_table(per_iter, name)
     asp.write_csv(per_iter, os.path.join(OUT_DIR, f"term_{name}.csv"), name)
-    asp.make_plot(per_iter, os.path.join("assets", f"term_{name}.png"), name)
-    _plot_progress(os.path.join("assets", f"progress_{name}.png"))
+    asp.make_plot(per_iter, os.path.join(OUT_DIR, f"term_{name}.png"), name)
+    _plot_progress(os.path.join(OUT_DIR, f"progress_{name}.png"))
 
     last_it = max(per_iter)
     final_row = per_iter[last_it]
@@ -177,7 +186,14 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
         "pure_eval_losses": pure.losses,
         "pure_elo_vs_random": round(pure.elo_difference, 1),
         "pure_elo_vs_random_95ci": [round(x, 1) for x in pure.elo_interval()],
+        "greedy_eval_wins": greedy.wins,
+        "greedy_eval_draws": greedy.draws,
+        "greedy_eval_losses": greedy.losses,
+        "greedy_elo": round(greedy.elo_difference, 1),
+        "greedy_elo_95ci": [round(x, 1) for x in greedy.elo_interval()],
+        "checkpoint": stage_ckpt,
         "seed": cfg.training.seed,
+        "draw_rule": "claimable (legacy)" if os.environ.get("RLCHESS_LEGACY_DRAW_CLAIMS") == "1" else "actual",
         "train_seconds": round(train_secs, 1),
     }
     with open(marker, "w", encoding="utf-8") as fh:
@@ -429,11 +445,17 @@ def main() -> None:
                    help="Run ONLY Experiment C and compare it against the published "
                         "A/B figures (docs/experiment-c-results.md). About half the "
                         "GPU time of --run-combined, which re-runs every arm.")
+    p.add_argument("--skip-scaled", action="store_true",
+                   help="Skip the 10x-compute stage (most of the GPU time), e.g. for a "
+                        "multi-seed baseline-vs-assisted comparison.")
     p.add_argument("--skip-assisted", action="store_true",
                    help="run only Experiment A (compute scaling), skip the ablation.")
     # eval knobs
     p.add_argument("--eval-games", type=int, default=50)
     p.add_argument("--eval-sims", type=int, default=50)
+    p.add_argument("--legacy-draw-claims", action="store_true",
+                   help="End games when a draw can merely be claimed (the rule before "
+                        "2026-11-14, used by the 2026-07-14 run); see chess_game.END_ON_CLAIMABLE_DRAWS.")
     p.add_argument("--seed", type=int, default=None,
                    help="Training seed for every stage. Each seed writes to its own "
                         "experiment_out/seed<N>/, so seeds can be run side by side and "
@@ -441,8 +463,14 @@ def main() -> None:
     args = p.parse_args()
 
     global OUT_DIR
+    if args.legacy_draw_claims:
+        os.environ["RLCHESS_LEGACY_DRAW_CLAIMS"] = "1"
+        import chess_game
+        chess_game.END_ON_CLAIMABLE_DRAWS = True
     if args.seed is not None:
         OUT_DIR = os.path.join(OUT_DIR, f"seed{args.seed}")
+    if args.legacy_draw_claims:
+        OUT_DIR = OUT_DIR + "-legacy-draws"
 
     if args.quick:
         args.device = "cpu"
@@ -488,9 +516,12 @@ def main() -> None:
         eval_games=args.eval_games, eval_sims=args.eval_sims,
         material_weight=args.assist_weight)
 
-    if args.seed is not None:
-        for c in (baseline_cfg, scaled_cfg, assisted_cfg, combined_cfg):
+    for c in (baseline_cfg, scaled_cfg, assisted_cfg, combined_cfg):
+        if args.seed is not None:
             c.training.seed = args.seed
+        # Checkpoints stay inside this run's directory: train() writes best.pt,
+        # and checkpoints/best.pt is the committed network the website serves.
+        c.training.checkpoint_dir = os.path.join(OUT_DIR, "checkpoints")
 
     if args.only_combined:
         combined = run_stage("combined", combined_cfg, args.eval_games, args.eval_sims)
@@ -501,7 +532,11 @@ def main() -> None:
         return
 
     baseline = run_stage("baseline", baseline_cfg, args.eval_games, args.eval_sims)
-    scaled = run_stage("scaled", scaled_cfg, args.eval_games, args.eval_sims)
+    if args.skip_scaled:
+        scaled = dict(baseline)  # neutral placeholder so the write-up still renders
+        scaled["name"] = "scaled (skipped)"
+    else:
+        scaled = run_stage("scaled", scaled_cfg, args.eval_games, args.eval_sims)
     if args.skip_assisted:
         assisted = dict(baseline)  # neutral placeholder so the write-up still renders
         assisted["name"] = "assisted (skipped)"
@@ -523,7 +558,7 @@ def main() -> None:
               f"material_w {m.get('material_weight', 0.0):.2f}, "
               f"{m['total_self_play_games']} games")
     print(f"\nResults written to {results_path}")
-    print("Charts in assets/: term_{baseline,scaled,assisted}.png + progress_*.png")
+    print(f"Charts, checkpoints and PGNs in {OUT_DIR}/")
 
 
 if __name__ == "__main__":

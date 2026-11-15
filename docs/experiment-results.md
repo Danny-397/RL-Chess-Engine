@@ -44,6 +44,13 @@ and [`data/start_network_control.json`](data/start_network_control.json).*
 > | scaled (10×) | +10 (−8, +28) | 0 (w = 0) | +10 (−26, +45) |
 > | assisted | +21 (+1, +41) | −10 (w = 0.30) | **+31 (+3, +60)** |
 >
+>
+> 4. **Draw rule (found later the same day).** Games ended as soon as a repetition could be
+>    *claimed*, which python-chess allows when the side to move merely has a repeating move
+>    available. Every "REP" count below includes games that ended before anyone repeated; the
+>    search also scored those positions as draws. All arms shared the rule, so comparisons hold,
+>    but the rates are inflated. The rule is fixed; see technical report §5.5.
+>
 > What holds: the draw cycle in self-play (the termination tables in §A are unaffected),
 > and a small, marginal gain for the assisted arm over its own start, from one training
 > seed. Neither unassisted arm measurably changed strength. The repo assumes the code was

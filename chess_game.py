@@ -39,9 +39,11 @@ It is responsible for three things:
 from __future__ import annotations
 
 import math
+import os
 from typing import List, Optional
 
 import numpy as np
+
 import chess
 
 from config import NUM_INPUT_PLANES, NUM_ACTIONS
@@ -358,6 +360,22 @@ def encode_board(board: chess.Board) -> np.ndarray:
 
 
 # --------------------------------------------------------------------------- #
+# Draw rules
+# --------------------------------------------------------------------------- #
+#: Before 2026-11-14 a game ended as soon as a draw could be *claimed*:
+#: ``is_game_over(claim_draw=True)``.  python-chess's claim test is true not only
+#: when a position has occurred three times but also when the side to move merely
+#: *has a move* that would make it occur a third time (likewise for the fifty-move
+#: rule).  So self-play and evaluation games stopped as "threefold repetition"
+#: before anyone repeated, and the search scored every such leaf as a dead draw,
+#: even when the side to move was winning -- a mechanical push towards the draw
+#: cycle.  The default is now the actual rule; set this to ``True`` (or pass
+#: ``run_experiment.py --legacy-draw-claims``) to reproduce the 2026-07-14 run.
+#: Read from the environment so worker processes (which re-import) inherit it.
+END_ON_CLAIMABLE_DRAWS = os.environ.get("RLCHESS_LEGACY_DRAW_CLAIMS") == "1"
+
+
+# --------------------------------------------------------------------------- #
 # The game wrapper
 # --------------------------------------------------------------------------- #
 class ChessGame:
@@ -399,8 +417,17 @@ class ChessGame:
 
     # ---- terminal detection ------------------------------------------------ #
     def is_terminal(self) -> bool:
-        """Return ``True`` if the game is over (checkmate, stalemate or draw)."""
-        return self.board.is_game_over(claim_draw=True)
+        """Return ``True`` if the game is over (checkmate, stalemate or draw).
+
+        A repetition draw needs the position to have *occurred* three times and
+        a fifty-move draw needs the counter to have *reached* 100 half-moves; a
+        draw that is merely available with the next move does not end the game.
+        See :data:`END_ON_CLAIMABLE_DRAWS`.
+        """
+        b = self.board
+        if END_ON_CLAIMABLE_DRAWS:
+            return b.is_game_over(claim_draw=True)
+        return b.is_game_over(claim_draw=False) or b.is_repetition(3) or b.halfmove_clock >= 100
 
     def terminal_value(self) -> float:
         """Return the game result from the perspective of the *side to move*.
