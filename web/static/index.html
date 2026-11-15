@@ -369,7 +369,7 @@ main:focus { outline: none; }
   .prose ol, .prose ul { padding-left: 22px; }
   .prose .small { font-size: 14px; color: var(--ink-3); }
   .prose figure { margin: var(--s-6) 0; }
-  @media (min-width: 1100px) { .prose figure { width: 960px; } }
+  @media (min-width: 1100px) { .prose figure:not(.replay) { width: 960px; } }
   .prose figcaption { font-size: 13px; color: var(--ink-3); margin-top: var(--s-2); }
   .formula { margin: var(--s-4) 0; padding: var(--s-3) var(--s-4); border-left: 2px solid var(--brass);
     font-family: var(--mono); font-size: 14px; color: var(--ink); background: rgba(0,0,0,.18); overflow-x: auto; white-space: nowrap; }
@@ -388,6 +388,33 @@ main:focus { outline: none; }
   .note .label { display: block; margin-bottom: var(--s-2); color: var(--brass); }
   .prose .btn-row { margin-top: var(--s-7); }
 
+  /* draw-cycle replay (Findings) */
+  .replay { display: grid; grid-template-columns: auto 1fr; gap: var(--s-5); align-items: start; margin: var(--s-6) 0; }
+  .replay[hidden] { display: none; }
+  .mini-frame { padding: 12px; border-radius: 3px; background-color: var(--frame);
+    background-image: linear-gradient(160deg, rgba(255,235,200,.07), rgba(0,0,0,.18)), var(--grain); background-size: auto, 640px 640px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 24px 40px -24px rgba(0,0,0,.8); }
+  .mini-board { width: 300px; height: 300px; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    outline: 1px solid rgba(201,163,104,.45); outline-offset: 4px; position: relative; isolation: isolate; }
+  .mini-board::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background-image: var(--grain); background-size: 700px 700px; opacity: .2; mix-blend-mode: multiply; }
+  .mini-board .sq { cursor: default; }
+  .mini-board .sq.rep3::after { content: ""; position: absolute; inset: 0; background: rgba(208,122,104,.3); z-index: 0; }
+  .replay-side .label { margin: 0 0 var(--s-2); }
+  .replay-pick { margin-top: 0; }
+  .replay-pick select { max-width: none; }
+  .replay-controls { display: flex; gap: 6px; margin: var(--s-4) 0; }
+  .replay-controls .btn { height: 34px; padding: 0 12px; font-size: 13px; }
+  .replay-controls #rpPlay { min-width: 72px; }
+  .replay-stats { margin: 0; display: grid; grid-template-columns: repeat(3, auto); gap: var(--s-5); justify-content: start; }
+  .replay-stats dt { font: 600 11px/1.3 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .replay-stats dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .replay-stats dd.hot { color: var(--bad); font-weight: 600; }
+  .replay figcaption { grid-column: 1 / -1; font-size: 13px; color: var(--ink-3); margin: 0; }
+  @media (max-width: 640px) {
+    .replay { grid-template-columns: 1fr; }
+    .mini-board { width: calc(100vw - 32px - 24px); height: calc(100vw - 32px - 24px); }
+  }
   footer { max-width: 1320px; margin: var(--s-9) auto 0; padding: var(--s-5) var(--s-6) var(--s-7); display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5);
     justify-content: space-between; font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); }
   footer a { color: var(--ink-2); }
@@ -448,7 +475,7 @@ main:focus { outline: none; }
           <div><dt>Search</dt><dd>PUCT Monte-Carlo tree search, with the value head at the leaves instead of rollouts.</dd></div>
           <div><dt>Training</dt><dd>Self-play games become (position, visit distribution, result) examples for a combined policy and value loss.</dd></div>
           <div><dt>Second engine</dt><dd>A classical alpha-beta searcher with quiescence and piece-square tables, rated about 1390 against strength-limited Stockfish.</dd></div>
-          <div><dt>Tests</dt><dd>44 tests in CI, aimed at the bugs that fail silently: board mirroring, value sign flips, move-encoding round trips.</dd></div>
+          <div><dt>Tests</dt><dd>50 tests in CI, aimed at the bugs that fail silently: board mirroring, value sign flips, move-encoding round trips.</dd></div>
         </dl>
       </div>
     </div>
@@ -589,6 +616,30 @@ main:focus { outline: none; }
         means less than it appears to as well: the targets are the search's own visit counts, which
         sharpen as the network does.</p>
 
+      <figure class="replay" id="replay" hidden>
+        <div class="replay-board">
+          <div class="mini-frame"><div class="mini-board" id="rpBoard" aria-label="Replay board"></div></div>
+        </div>
+        <div class="replay-side">
+          <p class="label">Replay a real self-play game</p>
+          <div class="optrow replay-pick"><span>Game</span><select id="rpGame" aria-label="Choose a recorded game"></select></div>
+          <div class="replay-controls">
+            <button class="btn ghost" id="rpStart" aria-label="First move">|&lsaquo;</button>
+            <button class="btn ghost" id="rpPrev" aria-label="Previous move">&lsaquo;</button>
+            <button class="btn primary" id="rpPlay">Play</button>
+            <button class="btn ghost" id="rpNext" aria-label="Next move">&rsaquo;</button>
+            <button class="btn ghost" id="rpEnd" aria-label="Last move">&rsaquo;|</button>
+          </div>
+          <dl class="replay-stats" aria-live="polite">
+            <div><dt>Move</dt><dd id="rpPly">0</dd></div>
+            <div><dt>Last move</dt><dd id="rpSan">&ndash;</dd></div>
+            <div><dt>Position seen</dt><dd id="rpRep">1&times;</dd></div>
+          </dl>
+          <p class="small" id="rpEnding"></p>
+        </div>
+        <figcaption id="rpCaption"></figcaption>
+      </figure>
+
       <h2>Two experiments</h2>
       <p>One GPU run (Kaggle, 2× T4, 9.8 hours) with three arms. Each arm changes one thing from the
         baseline: A scales self-play tenfold; B blends a material count into the search's leaf value,
@@ -649,11 +700,59 @@ main:focus { outline: none; }
         </table>
       </div>
 
+      <h2>A rule that ended games early</h2>
+      <p>The engine stopped a game as soon as a draw could be <em>claimed</em>. In python-chess a
+        repetition claim is valid when the side to move merely <em>has a move</em> that would repeat a
+        position a third time, so games ended as &ldquo;threefold repetition&rdquo; before anyone repeated,
+        and the search scored every such position as a dead draw, even for the side that was winning.
+        Every number above used that rule, so the comparisons between them hold, but the draw counts are
+        inflated and the rule itself pushes towards draws.</p>
+      <p>The rule is now the real one: three actual occurrences, or a fifty-move counter that has reached
+        100. Under it, the network on this site still ends all six of its recorded self-play games in a
+        genuine threefold repetition, after 25&ndash;36 plies (the replay above). How much of the July
+        draw rate the rule caused is one of the things the multi-seed rerun measures.</p>
+
+      <h2>The value head, measured directly</h2>
+      <p>The explanation is about the value head, so I measured it: 300 roughly level positions, and the
+        same positions with one queen removed so the side to move is up or down a queen.</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Network</th><th class="num">Up a queen</th><th class="num">Level</th><th class="num">Down a queen</th><th class="num">Up &minus; down</th></tr></thead>
+          <tbody>
+            <tr><td>Untrained (seed 42)</td><td class="num">&minus;0.113</td><td class="num">&minus;0.113</td><td class="num">&minus;0.113</td><td class="num">0.000</td></tr>
+            <tr><td>This site&rsquo;s network</td><td class="num">&minus;0.057</td><td class="num">&minus;0.058</td><td class="num">&minus;0.060</td><td class="num">+0.003</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>On a scale from &minus;1 to +1, being a queen up should read close to +1. This network separates
+        the two by 0.003: it has learned almost nothing about material, which is what a value target of
+        zero everywhere predicts. It is one early checkpoint; the rerun probes every trained network.</p>
+
+      <h2>A sturdier yardstick</h2>
+      <p>Most games against a random mover are drawn, which is why an untrained network can land anywhere
+        from about &minus;7 to +120 against it. The repository now has a second opponent: one that mates when
+        it can and otherwise grabs the most material, looking no further. Untrained networks lose most games
+        to it outright:</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Starting network</th><th class="num">Material w</th><th class="num">W / D / L</th><th class="num">Elo vs greedy (95% CI)</th></tr></thead>
+          <tbody>
+            <tr><td>Seed 42 (100 games)</td><td class="num">0</td><td class="num">0 / 13 / 87</td><td class="num">&minus;463 (&minus;592, &minus;386)</td></tr>
+            <tr><td>Seed 42 (100 games)</td><td class="num">0.30</td><td class="num">2 / 47 / 51</td><td class="num">&minus;186 (&minus;238, &minus;141)</td></tr>
+            <tr><td>Seeds 1&ndash;3 (150 games)</td><td class="num">0</td><td class="num">3 / 32 / 115</td><td class="num">&minus;335 (&minus;405, &minus;282)</td></tr>
+            <tr><td>Seeds 1&ndash;3 (150 games)</td><td class="num">0.30</td><td class="num">7 / 57 / 86</td><td class="num">&minus;203 (&minus;252, &minus;161)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>That leaves room to measure learning, with mostly decisive games. Seed still matters, so the
+        rerun uses three. The networks from the July run no longer exist, so this applies from the rerun on.</p>
+
       <h2>What the data supports</h2>
       <ul>
         <li><strong>The draw cycle is real.</strong> From iteration 3 the baseline's self-play is all threefold repetition, and ten times the games leaves 88% of them undecided.</li>
         <li><strong>Neither unassisted arm measurably changed strength.</strong> Both intervals include zero; the earlier reading that the baseline lost strength came from comparing it with the wrong untrained network.</li>
         <li><strong>The assisted arm improved a little.</strong> About +31 Elo over its own starting network, just clear of zero, from one training seed. Treat it as a lead, not a result.</li>
+        <li><strong>The draw rule mattered.</strong> Games ended on a merely available repetition. The behaviour is genuine (real repetitions under the corrected rule), but the July draw counts are inflated by an amount still to be measured.</li>
         <li><strong>The original headline does not hold.</strong> “Signal, not compute: −21 → +28” compared networks evaluated with different searches, with no starting-network reference and no intervals.</li>
       </ul>
 
@@ -666,9 +765,11 @@ main:focus { outline: none; }
       </ul>
 
       <h2>What would settle it</h2>
-      <p>Three seeds per arm; every network evaluated with <code>material_weight = 0</code> as well as with
-        the weight it trained under; and the combined arm (10× compute plus the assist). The evaluation
-        override and the control script are in the repository, so the corrected protocol is one command per arm.</p>
+      <p>Three seeds per arm under the corrected draw rule; every network judged against random (with and
+        without the material blend) and against the greedy opponent, next to its own starting network; the
+        value probe on every network; and one run under the old rule to size its effect. That is one
+        <a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/notebooks/seeds_rerun.ipynb" target="_blank" rel="noopener">Kaggle notebook</a>,
+        about nine GPU hours.</p>
 
       <div class="btn-row">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/technical-report.md" target="_blank" rel="noopener">Technical report</a>
@@ -769,6 +870,7 @@ function showTab(tab, opts = {}) {
     else if (('#' + tab) !== location.hash) history.pushState(null, '', hash);
   }
   if (!opts.noScroll) window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (tab === 'findings') initReplay();
 }
 window.addEventListener('popstate', () => showTab(location.hash.slice(1) || 'home', { fromHash: true }));
 window.addEventListener('hashchange', () => showTab(location.hash.slice(1) || 'home', { fromHash: true }));
@@ -1791,6 +1893,72 @@ if (document.getElementById('play').classList.contains('active')) ensureRL();
 else new MutationObserver((_, mo) => {
   if (document.getElementById('play').classList.contains('active')) { mo.disconnect(); ensureRL(); }
 }).observe(document.getElementById('play'), { attributes: true, attributeFilter: ['class'] });
+
+// ----------------------------- draw-cycle replay (Findings) -----------------------------
+// Replays recorded self-play games (static/selfplay_games.json, written by
+// tools/export_selfplay_games.py; every game kept, none selected) and counts how
+// often the current position has occurred, so the threefold repetition is visible.
+// Loaded only when Findings opens; hidden if the file is missing. Self-contained,
+// because showTab can call it before the rest of this script has run.
+function initReplay() {
+  if (initReplay.started) return;
+  initReplay.started = true;
+  const box = document.getElementById('replay');
+  const $ = id => document.getElementById(id);
+  let data = null, ply = 0, timer = null, fens = [], sans = [];
+  const key = fen => fen.split(' ').slice(0, 4).join(' ');   // position identity for repetition
+  function load(i) {
+    stop(); ply = 0;
+    const g = data.games[i], c = new Chess();
+    fens = [c.fen()]; sans = [];
+    for (const m of g.moves) { const r = c.move(m); if (!r) break; sans.push(r.san); fens.push(c.fen()); }
+    $('rpEnding').textContent = 'Ended after ' + g.plies + ' plies by ' + g.termination + ' (' + g.result + ').';
+    draw();
+  }
+  function draw() {
+    const b = new Chess(fens[ply]).board();
+    const k = key(fens[ply]);
+    let seen = 0;
+    for (let j = 0; j <= ply; j++) if (key(fens[j]) === k) seen++;
+    let html = '';
+    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+      const p = b[r][f];
+      const cls = 'sq ' + ((r + f) % 2 === 0 ? 'light' : 'dark') + (seen >= 3 && p && p.type === 'k' ? ' rep3' : '');
+      html += '<div class="' + cls + '">' + (p ? '<img class="piece" src="' + pieceSrc(p.color, p.type) + '" alt="">' : '') + '</div>';
+    }
+    $('rpBoard').innerHTML = html;
+    $('rpPly').textContent = ply + ' / ' + (fens.length - 1);
+    $('rpSan').textContent = ply ? sans[ply - 1] : '\u2013';
+    $('rpRep').textContent = seen + '\u00d7';
+    $('rpRep').classList.toggle('hot', seen >= 2);
+  }
+  function step(d) { ply = Math.max(0, Math.min(fens.length - 1, ply + d)); draw(); if (ply === fens.length - 1) stop(); }
+  function stop() { clearInterval(timer); timer = null; $('rpPlay').textContent = 'Play'; }
+  function play() {
+    if (timer) return stop();
+    if (ply === fens.length - 1) { ply = 0; draw(); }
+    $('rpPlay').textContent = 'Pause';
+    timer = setInterval(() => step(1), 650);
+  }
+  fetch('static/selfplay_games.json').then(r => r.ok ? r.json() : Promise.reject()).then(d => {
+    data = d;
+    const sel = $('rpGame');
+    sel.innerHTML = d.games.map((g, i) =>
+      '<option value="' + i + '">Game ' + (i + 1) + ': ' + g.plies + ' plies, ' + g.termination + '</option>').join('');
+    sel.onchange = () => load(+sel.value);
+    $('rpCaption').textContent = 'Recorded from ' + d.network + ', playing itself with no material blend (' +
+      d.sims_per_move + ' simulations per move). All ' + d.games.length +
+      ' recorded games are listed; none were selected or edited.' +
+      (d.draw_rule === 'actual' ? ' A repetition ends a game only when the position has actually occurred three times.' : '');
+    $('rpStart').onclick = () => { stop(); ply = 0; draw(); };
+    $('rpEnd').onclick = () => { stop(); ply = fens.length - 1; draw(); };
+    $('rpPrev').onclick = () => { stop(); step(-1); };
+    $('rpNext').onclick = () => { stop(); step(1); };
+    $('rpPlay').onclick = play;
+    box.hidden = false;
+    load(0);
+  }).catch(() => { box.hidden = true; });
+}
 </script>
 </body>
 </html>

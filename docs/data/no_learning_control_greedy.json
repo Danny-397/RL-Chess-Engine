@@ -1,0 +1,89 @@
+{
+  "what": "untrained (random-init) ChessNet + MCTS vs greedy",
+  "opponent": "greedy",
+  "draw_rule": "actual",
+  "network": "4 residual blocks x 64 channels, random init, no training",
+  "sims_per_move": 50,
+  "max_moves": 200,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "games_per_seed": 50,
+  "arms": [
+    {
+      "material_weight": 0.0,
+      "games": 150,
+      "wins": 3,
+      "draws": 32,
+      "losses": 115,
+      "score": 0.1267,
+      "elo": -335,
+      "elo_95ci": [
+        -405,
+        -282
+      ],
+      "per_seed": [
+        {
+          "seed": 1,
+          "wins": 2,
+          "draws": 8,
+          "losses": 40,
+          "seconds": 731.4
+        },
+        {
+          "seed": 2,
+          "wins": 1,
+          "draws": 10,
+          "losses": 39,
+          "seconds": 802.6
+        },
+        {
+          "seed": 3,
+          "wins": 0,
+          "draws": 14,
+          "losses": 36,
+          "seconds": 1065.5
+        }
+      ]
+    },
+    {
+      "material_weight": 0.3,
+      "games": 150,
+      "wins": 7,
+      "draws": 57,
+      "losses": 86,
+      "score": 0.2367,
+      "elo": -203,
+      "elo_95ci": [
+        -252,
+        -161
+      ],
+      "per_seed": [
+        {
+          "seed": 1,
+          "wins": 3,
+          "draws": 19,
+          "losses": 28,
+          "seconds": 1308.4
+        },
+        {
+          "seed": 2,
+          "wins": 0,
+          "draws": 24,
+          "losses": 26,
+          "seconds": 1217.3
+        },
+        {
+          "seed": 3,
+          "wins": 4,
+          "draws": 14,
+          "losses": 32,
+          "seconds": 953.1
+        }
+      ]
+    }
+  ],
+  "seconds": 3068
+}

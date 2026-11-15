@@ -37,13 +37,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 torch.set_num_threads(1)
 
 from config import Config  # noqa: E402
-from evaluation import MatchResult, evaluate_against_random  # noqa: E402
+from evaluation import MatchResult, evaluate_against_greedy, evaluate_against_random  # noqa: E402
 from model import ChessNet  # noqa: E402
 
 
 def run_one(task: tuple[float, int, int, int]) -> dict:
     """One (weight, seed) cell: a fresh random-init network vs RandomAgent."""
-    weight, seed, games, sims = task
+    weight, seed, games, sims, opponent = task
     torch.set_num_threads(1)
     cfg = Config()
     random.seed(seed)
@@ -51,8 +51,8 @@ def run_one(task: tuple[float, int, int, int]) -> dict:
     torch.manual_seed(seed)
     net = ChessNet(cfg.network).eval()          # random init, no training
     t0 = time.time()
-    m = evaluate_against_random(net, cfg, num_games=games,
-                                num_simulations=sims, material_weight=weight)
+    evaluate = evaluate_against_greedy if opponent == "greedy" else evaluate_against_random
+    m = evaluate(net, cfg, num_games=games, num_simulations=sims, material_weight=weight)
     print(f"w={weight:.2f} seed={seed}: +{m.wins} ={m.draws} -{m.losses}", flush=True)
     return {"weight": weight, "seed": seed, "wins": m.wins, "draws": m.draws,
             "losses": m.losses, "seconds": round(time.time() - t0, 1)}
@@ -86,18 +86,26 @@ def main() -> int:
     ap.add_argument("--sims", type=int, default=50, help="MCTS sims per move (Exp. B eval used 50)")
     ap.add_argument("--weight", type=float, default=0.30)
     ap.add_argument("--workers", type=int, default=3)
+    ap.add_argument("--legacy-draw-claims", action="store_true",
+                    help="end games on a merely claimable draw, as before 2026-11-14")
+    ap.add_argument("--opponent", choices=["random", "greedy"], default="random",
+                    help="random mover, or a one-ply material grabber (MaterialGreedyAgent)")
     ap.add_argument("--out", default=os.path.join("docs", "data", "no_learning_control.json"))
     args = ap.parse_args()
 
+    if args.legacy_draw_claims:
+        os.environ["RLCHESS_LEGACY_DRAW_CLAIMS"] = "1"       # inherited by the pool workers
     seeds = ([int(x) for x in args.seed_values.split(",")] if args.seed_values
              else list(range(1, args.seeds + 1)))
     t0 = time.time()
-    tasks = [(w, s, args.games, args.sims) for w in (0.0, args.weight) for s in seeds]
+    tasks = [(w, s, args.games, args.sims, args.opponent) for w in (0.0, args.weight) for s in seeds]
     with multiprocessing.Pool(args.workers) as pool:
         cells = pool.map(run_one, tasks, chunksize=1)
     arms = [summarise(w, cells) for w in (0.0, args.weight)]
     out = {
-        "what": "untrained (random-init) ChessNet + MCTS vs RandomAgent",
+        "what": f"untrained (random-init) ChessNet + MCTS vs {args.opponent}",
+        "opponent": args.opponent,
+        "draw_rule": "claimable (legacy)" if args.legacy_draw_claims else "actual",
         "network": "4 residual blocks x 64 channels, random init, no training",
         "sims_per_move": args.sims,
         "max_moves": Config().training.max_moves,

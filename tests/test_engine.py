@@ -29,7 +29,7 @@ from model import ChessNet
 from mcts import MCTS, action_probabilities
 from self_play import play_game, generate_self_play_data
 from evaluation import (
-    MatchResult, NetworkAgent, RandomAgent, play_match, elo_difference,
+    MatchResult, MaterialGreedyAgent, NetworkAgent, RandomAgent, play_match, elo_difference,
 )
 from analysis import analyze_position, value_to_win_probability
 import search
@@ -353,6 +353,18 @@ def test_score_interval_shrinks_with_more_games_and_more_draws():
     assert w(MatchResult(0, 10, 0, [])) == pytest.approx(0.0)
 
 
+def test_greedy_agent_takes_a_free_queen():
+    """White to move can capture an undefended queen on d5; greedy must."""
+    game = ChessGame(chess.Board("4k3/8/8/3q4/8/8/3R4/4K3 w - - 0 1"))
+    assert MaterialGreedyAgent().select_move(game) == chess.Move.from_uci("d2d5")
+
+
+def test_greedy_agent_prefers_mate_over_material():
+    """Back-rank mate (Ra8#) beats grabbing the loose knight (Bxg4)."""
+    game = ChessGame(chess.Board("6k1/5ppp/8/8/6n1/8/8/R2B2K1 w - - 0 1"))
+    assert MaterialGreedyAgent().select_move(game) == chess.Move.from_uci("a1a8")
+
+
 def test_network_agent_can_override_the_material_weight():
     """Evaluating 'the network alone' must not inherit the training-time blend."""
     cfg = _fast_config()
@@ -399,3 +411,49 @@ def test_analyze_position_recommends_legal_moves():
         assert 0.0 <= s.win_probability <= 1.0
     # Suggestions must be sorted by visit count, strongest first.
     assert visits == sorted(visits, reverse=True)
+
+
+def test_value_probe_positions_differ_by_exactly_one_queen():
+    """Each probe triple is valid, level is within a pawn, and up/down are +-9."""
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+    from value_probe import make_positions
+    from chess_game import _raw_material
+    triples = make_positions(20, (10, 30), seed=3)
+    assert len(triples) == 20
+    for t in triples:
+        level, up, down = (chess.Board(t[k]) for k in ("level", "up", "down"))
+        assert up.is_valid() and down.is_valid()
+        assert abs(_raw_material(level)) <= 1
+        assert _raw_material(up) - _raw_material(level) == 9
+        assert _raw_material(level) - _raw_material(down) == 9
+
+
+def _shuffle(board, n_cycles, extra=()):
+    for _ in range(n_cycles):
+        for san in ("Nf3", "Nf6", "Ng1", "Ng8"):
+            board.push_san(san)
+    for san in extra:
+        board.push_san(san)
+    return board
+
+
+def test_an_available_repetition_does_not_end_the_game():
+    """Start position seen twice, and Ng8 would make it three: claimable, not over."""
+    board = _shuffle(chess.Board(), 1, extra=("Nf3", "Nf6", "Ng1"))
+    assert board.can_claim_threefold_repetition() and not board.is_repetition(3)
+    assert not ChessGame(board).is_terminal()
+
+
+def test_an_actual_threefold_repetition_ends_the_game_as_a_draw():
+    board = _shuffle(chess.Board(), 2)
+    assert board.is_repetition(3)
+    game = ChessGame(board)
+    assert game.is_terminal() and game.terminal_value() == 0.0 and game.result_white() == 0.0
+
+
+def test_legacy_claim_rule_reproduces_the_july_run(monkeypatch):
+    import chess_game
+    board = _shuffle(chess.Board(), 1, extra=("Nf3", "Nf6", "Ng1"))
+    monkeypatch.setattr(chess_game, "END_ON_CLAIMABLE_DRAWS", True)
+    assert ChessGame(board).is_terminal()
+
