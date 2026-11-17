@@ -20,6 +20,13 @@
 [`data/gpu_run_2026-07-14.json`](data/gpu_run_2026-07-14.json) (this file's tables, machine-readable)
 and [`data/start_network_control.json`](data/start_network_control.json).*
 
+> **Superseded, 2026-11-16.** A three-seed rerun under the corrected draw rule, with
+> every network measured against its own starting network, is in
+> [technical report §5.8](technical-report.md) and
+> [`data/seeds_rerun_2026-11.json`](data/seeds_rerun_2026-11.json). It does not replicate
+> the assisted arm's gain below (pooled change +6 Elo, 95% CI −19, +31), and the baseline
+> ends up worse than its start (−93, 95% CI −125, −60). This file documents the July run.
+>
 > **Re-analysis, 2026-11-14 — read this first.** The original conclusions below
 > ("the signal lever flips Elo from −21 to +28; the draw cycle is primarily a
 > signal problem") do not survive a closer look:
@@ -272,13 +279,13 @@ draw-cycle signature (technical report §6), not a training success.*
    indistinguishable from the starting network (+10, 95% CI −26, +45).
 3. **The material assist keeps decisive games in self-play** (19% checkmates, final
    iteration 30%) and is the only arm with a measurable gain over its start: +31 Elo
-   (95% CI +3, +60), from a single training seed.
+   (95% CI +3, +60), from a single training seed. **Not replicated** across three seeds
+   (§5.8 of the technical report).
 4. **The original headline is withdrawn.** "Signal, not compute: −21 → +28" compared
    arms evaluated under different searches, without a starting-network reference or
    intervals (see the re-analysis note at the top).
 5. **What would settle it:** three training seeds per arm, every network also evaluated
-   with `material_weight = 0`, and the combined arm. `run_experiment.py --seed N` now
-   writes each seed to its own directory and evaluates every arm both ways.
+   with `material_weight = 0`. Done in November 2026; see technical report §5.8.
 
 ## Reproducibility
 
