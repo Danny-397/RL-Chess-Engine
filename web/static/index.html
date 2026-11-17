@@ -462,7 +462,8 @@ main:focus { outline: none; }
             measured against the network each run started from, training inside the cycle made the
             engine <em>worse</em>: about 93 Elo against a random mover and 155 against a material-grabbing
             one. Blending a material count into the search only held it level. An earlier single-seed
-            gain for that arm did not replicate.</p>
+            gain for that arm did not replicate. Scoring drawn games by material did not help either,
+            and a bug that hid repetitions from the search has been fixed.</p>
           <div class="btn-row"><button class="text-link" data-goto="findings">Measurements and caveats</button></div>
         </div>
       </div>
@@ -476,7 +477,7 @@ main:focus { outline: none; }
           <div><dt>Search</dt><dd>PUCT Monte-Carlo tree search, with the value head at the leaves instead of rollouts.</dd></div>
           <div><dt>Training</dt><dd>Self-play games become (position, visit distribution, result) examples for a combined policy and value loss.</dd></div>
           <div><dt>Second engine</dt><dd>A classical alpha-beta searcher with quiescence and piece-square tables, rated about 1390 against strength-limited Stockfish.</dd></div>
-          <div><dt>Tests</dt><dd>53 tests in CI, aimed at the bugs that fail silently: board mirroring, value sign flips, move-encoding round trips.</dd></div>
+          <div><dt>Tests</dt><dd>59 tests in CI, aimed at the bugs that fail silently: board mirroring, value sign flips, move-encoding round trips.</dd></div>
         </dl>
       </div>
     </div>
@@ -605,6 +606,29 @@ main:focus { outline: none; }
       <p class="lead">Self-play training stalled in a recognisable way, and across three seeds it made
         the network worse than where it started. These are the measurements, what they support, and
         what they do not.</p>
+
+      <p class="label">How the investigation went</p>
+      <dl class="rows">
+        <div><dt>July 2026</dt><dd>One GPU run, one seed per arm. Blending a material count into the search
+          seemed to break the draw cycle, from &minus;21 to +28 Elo. I published that as the headline.</dd></div>
+        <div><dt>14 Nov</dt><dd>I found the flaw: each arm had been evaluated with its own training search, and
+          nothing was compared with the network it started from. I withdrew the headline, and fixed a draw
+          rule that ended games before anyone had actually repeated.</dd></div>
+        <div><dt>15&ndash;16 Nov</dt><dd>The rerun: three seeds per arm, every network against its own start.
+          Training inside the cycle made the network worse, by 93 Elo against random. The July gain did not replicate.</dd></div>
+        <div><dt>16&ndash;17 Nov</dt><dd>Two more suspects. Scoring drawn games by material taught the value head
+          a little but changed nothing in play (&minus;93 again). Reading the search code turned up a bug: it
+          could not see repetitions of earlier positions in the game. Fixed, with a test that reproduces it.</dd></div>
+        <div><dt>Now</dt><dd>One last run with the fixed search, alone and with contempt. Results below when it finishes.</dd></div>
+      </dl>
+
+      <div class="note">
+        <span class="label">What I took from it</span>
+        <p>One run with no reference point can produce a convincing effect that is not there. The habits
+          that caught it, a starting-network control, several seeds and an interval on every number,
+          are now how everything here is measured. The two real bugs, though, were found by reading code,
+          not by spending more GPU time.</p>
+      </div>
 
       <h2>The draw cycle</h2>
       <p>The engine could win material but not convert it. In the baseline run, the untrained network
@@ -775,11 +799,28 @@ main:focus { outline: none; }
         89&ndash;100% of self-play games in every run ended without checkmate. The data, the summary script and
         the notebook are in the <a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/data/seeds_rerun_2026-11.json" target="_blank" rel="noopener">repository</a>.</p>
 
+      <h2>Two more suspects</h2>
+      <p><strong>A value target that is not zero.</strong> If drawn games teach the value head nothing, give
+        them something to teach: the final material balance, about +0.8 for a queen up. Same three seeds and
+        settings as the rerun. Against its own start the network still lost 93 Elo against random
+        (95% CI &minus;122 to &minus;63), the same as the baseline, and 87&ndash;95% of self-play games still
+        ended without checkmate. The value head did learn some material: up a queen minus down a queen rose
+        to +0.04 to +0.14, from 0.00 to 0.06 in the rerun. Knowing that a queen matters was not enough to
+        change how the engine played.
+        (<a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/data/draw_material_2026-11.json" target="_blank" rel="noopener">data</a>)</p>
+      <p><strong>A search that could not see the repetition.</strong> The tree search works on copies of the
+        board, and the copies dropped the game's move history. Inside the search, a move that repeated a
+        position for the third time looked like any other move, so the search could not tell it was
+        walking into a draw. The copies now keep the history that matters (everything since the last
+        capture or pawn move), at no measurable cost, and a test reproduces the old behaviour. Every result
+        on this page used the old search.</p>
+
       <h2>What the data supports</h2>
       <ul>
         <li><strong>The draw cycle is real.</strong> From iteration 3, 89&ndash;100% of self-play games end without checkmate in every run, under either draw rule, and ten times the games did not escape it in July.</li>
         <li><strong>Training inside it made the network worse.</strong> Across three seeds the baseline ended below the random network it started from, against both yardsticks.</li>
         <li><strong>The material assist did not fix training.</strong> With the blend in its search the engine held level (+6); its network alone degraded like the baseline's. The July single-seed gain of +31 did not replicate.</li>
+        <li><strong>A material value target did not fix it either.</strong> &minus;93 against random, the same as the baseline, although its value head learned more about material.</li>
         <li><strong>The draw rule inflated the counts, not the cycle.</strong> Same seed, old rule 89% non-decisive, corrected rule 82%.</li>
         <li><strong>The original headline does not hold.</strong> “Signal, not compute: −21 → +28” compared networks evaluated with different searches, with no starting-network reference and no intervals.</li>
       </ul>
@@ -793,11 +834,13 @@ main:focus { outline: none; }
       </ul>
 
       <h2>What next</h2>
-      <p>More of the same self-play will not help; the training signal itself has to change. The candidates
-        are move-history planes in the input, so the network can see a repetition coming; adjudicating
-        clearly won positions instead of playing them into a draw; and value targets that are not zero
-        everywhere. The <a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/notebooks/seeds_rerun.ipynb" target="_blank" rel="noopener">rerun notebook</a>
-        is the template for testing any of them: three seeds, each against its own start.</p>
+      <p>One run is in progress: the fixed search on its own, and with contempt, where during self-play each
+        side counts a draw as slightly bad for itself, so neither is content to repeat. Three seeds each, every
+        network against its own start (<a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/notebooks/draw_contempt.ipynb" target="_blank" rel="noopener">notebook</a>).</p>
+      <p>After that I am stopping. Each run here is 100 self-play games; AlphaZero trained on about 44 million.
+        At this size an idea can be ruled out cleanly but rarely ruled in, so more variations would mostly
+        add more null results. The one I would try with real compute is the standard fix: move-history
+        planes in the network's input, so it can see a repetition coming.</p>
 
       <div class="btn-row">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/technical-report.md" target="_blank" rel="noopener">Technical report</a>
