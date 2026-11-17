@@ -1,0 +1,254 @@
+[
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1000,
+  "result": "1/2-1/2",
+  "plies": 42,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1001,
+  "result": "1/2-1/2",
+  "plies": 79,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1002,
+  "result": "1/2-1/2",
+  "plies": 77,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1003,
+  "result": "1/2-1/2",
+  "plies": 43,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1004,
+  "result": "1/2-1/2",
+  "plies": 153,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1005,
+  "result": "1/2-1/2",
+  "plies": 81,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1006,
+  "result": "1/2-1/2",
+  "plies": 42,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1007,
+  "result": "1/2-1/2",
+  "plies": 168,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1008,
+  "result": "1/2-1/2",
+  "plies": 79,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1009,
+  "result": "0-1",
+  "plies": 110,
+  "termination": "mate"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1010,
+  "result": "1/2-1/2",
+  "plies": 48,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply15 (default)",
+  "seed": 1011,
+  "result": "1/2-1/2",
+  "plies": 43,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1000,
+  "result": "0-1",
+  "plies": 70,
+  "termination": "mate"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1001,
+  "result": "1/2-1/2",
+  "plies": 121,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1002,
+  "result": "1/2-1/2",
+  "plies": 107,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1003,
+  "result": "1/2-1/2",
+  "plies": 66,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1004,
+  "result": "1/2-1/2",
+  "plies": 78,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1005,
+  "result": "1/2-1/2",
+  "plies": 71,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1006,
+  "result": "1/2-1/2",
+  "plies": 58,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1007,
+  "result": "1/2-1/2",
+  "plies": 124,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1008,
+  "result": "1/2-1/2",
+  "plies": 72,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1009,
+  "result": "1/2-1/2",
+  "plies": 82,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1010,
+  "result": "1/2-1/2",
+  "plies": 73,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_to_ply60",
+  "seed": 1011,
+  "result": "1/2-1/2",
+  "plies": 87,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1000,
+  "result": "1-0",
+  "plies": 103,
+  "termination": "mate"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1001,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1002,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1003,
+  "result": "0-1",
+  "plies": 120,
+  "termination": "mate"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1004,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1005,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1006,
+  "result": "1/2-1/2",
+  "plies": 58,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1007,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1008,
+  "result": "1/2-1/2",
+  "plies": 124,
+  "termination": "threefold"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1009,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1010,
+  "result": "*",
+  "plies": 200,
+  "termination": "cap"
+ },
+ {
+  "schedule": "tau1_always",
+  "seed": 1011,
+  "result": "0-1",
+  "plies": 126,
+  "termination": "mate"
+ }
+]
