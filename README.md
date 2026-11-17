@@ -17,38 +17,54 @@
 </p>
 <p align="center"><em>The Play view at rlchess.xyz: three opponents (the trained network alone, a hybrid search, and a classical alpha-beta engine), with move suggestions and an evaluation bar.</em></p>
 
-A clean, fully-documented implementation of an **AlphaZero-style reinforcement
-learning chess engine**, written from scratch in **Python + PyTorch**.
+An **AlphaZero-style chess engine written from scratch in Python and PyTorch**, and an
+investigation into why its self-play training stalls.
 
-The engine learns to play chess by playing against itself: it starts from random
-weights and improves from the results of its own games. One piece of human knowledge
-is built in by default: the search blends a simple material count into its position
-evaluation (`material_weight = 0.30`). It was meant to break the draw cycle described
-below; across three seeds it does not (see Training results). Set it to `0.0` for pure
-AlphaZero, with zero human knowledge beyond the rules.
-The same three ideas that powered DeepMind's AlphaZero are all here, implemented
-in a way meant to be *read and understood*:
+## The short version
+
+The engine learns only from games against itself. At hobby scale those games collapse
+into threefold repetition within three iterations (the *draw cycle*), and a network
+trained on nothing but draws learns nothing useful. Most of this project is the work of
+finding out why, including retracting my own first answer.
+
+| When | What happened |
+|---|---|
+| July 2026 | One GPU run, one seed per arm, suggested that blending a material count into the search breaks the cycle (−21 → +28 Elo). I published it as the headline. |
+| 14 Nov | Found the flaw: each arm was evaluated with its own training search, with no comparison to the network it started from. **Withdrew the headline**, and fixed a draw rule that ended games before anyone had repeated. |
+| 15–16 Nov | Reran properly: three seeds per arm, every network against its own start. Training inside the cycle made the network **worse** (−93 Elo vs random, 95% CI −125 to −60). The July gain did not replicate. |
+| 16–17 Nov | Scoring drawn games by material: the value head learned a little, play did not change (−93 again). Reading the search code found a bug: it could not see repetitions of earlier positions in the game. Fixed, with a test that reproduces it. |
+| Now | One last run with the fixed search, alone and with contempt (each side treats a draw as slightly bad for itself in self-play). |
+
+**What I took from it:** one run with no reference point can produce a convincing effect
+that is not there. The habits that caught it, a starting-network control, several seeds,
+and an interval on every number, are now how every result here is measured. The two real
+bugs were found by reading code, not by more GPU time.
+
+Full write-up: the [Findings page](https://rlchess.xyz/#findings), the
+[technical report](docs/technical-report.md), and [the story behind it](docs/reflection.md).
+
+## What is in it
+
+The same three ideas that powered DeepMind's AlphaZero, implemented to be *read and understood*:
 
 1. A **deep residual neural network** that looks at a position and outputs both a
    move-preference (**policy**) and an estimate of who is winning (**value**).
 2. **Monte-Carlo Tree Search (MCTS)** that uses the network to look ahead and
    produce much stronger move choices than the raw network alone.
 3. A **self-play training loop** that turns those searches into training data and
-   feeds the improved network back into the search — a self-reinforcing cycle.
+   feeds the improved network back into the search.
 
-> This project was built to be a clear, correct, end-to-end demonstration of
-> reinforcement learning and search, not to chase grandmaster strength. Every
-> module is small, single-purpose and heavily commented.
-
-📝 **For the story behind it** — what I set out to do, the "draw cycle" that stumped
-me, and why I ended up shipping *two* engines — see [**docs/reflection.md**](docs/reflection.md).
+The site also has a classical **alpha-beta engine** (about 1390 against strength-limited
+Stockfish), because the self-play network is too weak to be fun to play. One piece of human
+knowledge is on by default at play time: the network's search blends in a material count
+(`material_weight = 0.30`). Set it to `0.0` for pure AlphaZero.
 
 ### What this project demonstrates
 
 - **Reinforcement learning from scratch** — the full AlphaZero loop (network ↔ search ↔ self-play), no RL libraries.
 - **Search algorithms** — PUCT Monte-Carlo Tree Search *and* a classical alpha-beta engine (negamax, quiescence, piece-square evaluation).
 - **Deep learning in PyTorch** — a dual-headed residual CNN, custom loss, training loop and checkpointing.
-- **Software engineering** — modular design, a 53-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
+- **Software engineering** — modular design, a 59-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
 - **Engineering judgement** — diagnosing and solving real problems under real constraints (see *Engineering decisions & challenges* below).
 
 ---
@@ -361,6 +377,17 @@ Pooled over seeds 1–3:
   +0.000 to +0.009 for five of six networks; seed-1 baseline reaches +0.06 (0.04, 0.08)
   ([`tools/value_probe.py`](tools/value_probe.py)).
 
+**Two more suspects (2026-11-16/17).** Giving drawn games a value target from the final material
+balance (`--draw-target material`, same three seeds) left the change vs start at **−93 (−122, −63)**
+against random, the same as the baseline, with 87–95% of self-play still non-decisive
+([data](docs/data/draw_material_2026-11.json)). Its value heads did learn more material
+(up minus down a queen +0.04 to +0.14, [probe](docs/data/value_probe_material_2026-11.json)).
+Separately, `ChessGame.clone()` dropped the move history, so MCTS could not see a threefold
+involving positions from before the search root. Clones now keep the reversible history;
+every number above used the old search (`--legacy-search-history` reproduces it).
+[`notebooks/draw_contempt.ipynb`](notebooks/draw_contempt.ipynb) tests the fixed search alone and
+with self-play contempt (`--contempt 0.2`).
+
 The July GPU run (one seed per arm, [full data](docs/experiment-results.md)) is kept for
 the record. Its headline, "the assist flips Elo from −21 to +28: a signal problem, not
 compute", was **withdrawn on 2026-11-14**: the arms were evaluated with different searches,
@@ -462,10 +489,10 @@ this one ran into, and how they were solved:
 
 ## Roadmap
 
-- Train the network to real strength on a GPU (a one-click [Colab notebook](notebooks/train_on_colab.ipynb)
-  is included) and publish the Elo-vs-iterations curve.
+- With real compute: move-history planes in the network input (the standard AlphaZero repetition
+  fix). At 100 self-play games per run, ideas can be ruled out but rarely ruled in, so this repo
+  stops adding variations after the contempt run.
 - Batched MCTS leaf evaluation to make GPU self-play far faster.
-- Add move-history planes to the board encoding (full AlphaZero repetition handling).
 
 ---
 
