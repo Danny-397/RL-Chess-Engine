@@ -23,8 +23,9 @@ learning chess engine**, written from scratch in **Python + PyTorch**.
 The engine learns to play chess by playing against itself: it starts from random
 weights and improves from the results of its own games. One piece of human knowledge
 is built in by default: the search blends a simple material count into its position
-evaluation (`material_weight = 0.30`), which breaks the draw cycle described below.
-Set it to `0.0` for pure AlphaZero, with zero human knowledge beyond the rules.
+evaluation (`material_weight = 0.30`). It was meant to break the draw cycle described
+below; across three seeds it does not (see Training results). Set it to `0.0` for pure
+AlphaZero, with zero human knowledge beyond the rules.
 The same three ideas that powered DeepMind's AlphaZero are all here, implemented
 in a way meant to be *read and understood*:
 
@@ -151,8 +152,9 @@ position as FEN).
 >   40 centipawns. It mostly plays like the search; the network only separates near-equal moves.
 >   Difficulty sets the search depth (1/2/3 ply).
 > - **Network** — the trained value network alone: a 1-ply value lookup with no search and no chess
->   knowledge added. The shipped weights are `checkpoints/best.pt`, iteration 2 of a short CPU run
->   (the GPU-trained networks from the experiments were lost with the Kaggle session), so it is weak.
+>   knowledge added. The shipped weights are `checkpoints/best.pt`, the GPU-trained material-assisted
+>   network from seed 1 of the 2026-11 rerun (chosen before any results were seen). Its value head
+>   learned almost nothing (§ Training results), so it is weak.
 > - **Classical** — the dependency-light alpha-beta searcher ([`search.py`](search.py):
 >   negamax, quiescence, piece-square tables, endgame mop-up), served by the backend. It plays sound
 >   chess and beats the random baseline 10–0. Against Stockfish 19 held to `UCI_Elo 1320` (0.1 s/move),
@@ -226,8 +228,8 @@ You enter moves in standard algebraic notation (`e4`, `Nf3`, `O-O`, `exd5`,
 
 The engine also reports its own win estimate each time it moves.
 
-> The bundled checkpoint (`checkpoints/best.pt`) is iteration 2 of a short CPU run: a
-> demonstration of the pipeline, not a strong player. Train longer for a tougher opponent.
+> The bundled checkpoint (`checkpoints/best.pt`) is the seed-1 material-assisted network from
+> the 2026-11 GPU rerun (10 iterations): a demonstration of the pipeline, not a strong player.
 
 ### Analyse any position
 
@@ -331,47 +333,47 @@ fitting the data, and is the engine actually getting stronger?*
 
 ### Training results (and an honest note on scale)
 
-One **GPU** run (Kaggle, 2× T4, ~9.8 h, 2026-07-14), three arms, one training seed each
-([full data](docs/experiment-results.md), [machine-readable](docs/data/gpu_run_2026-07-14.json)):
+**Three training seeds per arm** (Kaggle T4, 2026-11-15/16), under the corrected draw rule,
+each network measured against **its own starting network** under the same evaluation
+([data](docs/data/seeds_rerun_2026-11.json), built by [`tools/summarise_seeds.py`](tools/summarise_seeds.py);
+[report §5.8](docs/technical-report.md)). Each arm: 10 iterations × 10 self-play games × 100 simulations.
+Pooled over seeds 1–3:
+
+| Arm | Evaluated against | Trained | Starting network | Change, Elo (95% CI) |
+|---|---|---|---|---|
+| baseline | random | −19 | +74 | **−93 (−125, −60)** |
+| baseline | material-greedy | −524 | −369 | **−155 (−265, −45)** |
+| assisted | random, its own search (w = 0.30) | +2 | −3 | +6 (−19, +31) |
+| assisted | random, network only (w = 0) | −30 | +74 | −104 (−136, −72) |
+| assisted | material-greedy (w = 0) | −432 | −369 | −63 (−154, +28) |
+
+- **Training in the draw cycle made the networks worse.** The baseline lost 93 Elo against
+  random and 155 against a one-ply material grabber, relative to the untrained network it
+  started from. Two of three seeds drop sharply; seed 3 started weak and stayed level.
+- **The material assist only held its ground.** In its own search it is unchanged (+6);
+  without the blend its network is as degraded as the baseline's. The July "+31" for this arm
+  (one seed) does not replicate.
+- **The draw cycle is real, and the rule fix did not cause it.** From iteration 3, 89–100% of
+  self-play games end without checkmate, nearly all in genuine threefold repetition. The same
+  seed-1 baseline under the old claimable-draw rule: 89% non-decisive overall vs 82% corrected,
+  a modest difference from one seed.
+- **The value heads stay flat.** "Up a queen" minus "down a queen" on a −1 to +1 scale is
+  +0.000 to +0.009 for five of six networks; seed-1 baseline reaches +0.06 (0.04, 0.08)
+  ([`tools/value_probe.py`](tools/value_probe.py)).
+
+The July GPU run (one seed per arm, [full data](docs/experiment-results.md)) is kept for
+the record. Its headline, "the assist flips Elo from −21 to +28: a signal problem, not
+compute", was **withdrawn on 2026-11-14**: the arms were evaluated with different searches,
+with no starting-network reference and no intervals ([report §5.4](docs/technical-report.md)).
 
 ![Left: self-play games not ending in checkmate per iteration. Right: Elo vs random at each checkpoint with 95% intervals, and the starting network as reference lines.](assets/draw_cycle.png)
 
-| Arm | Self-play games | Material w | Checkmates in self-play | Elo vs random, pooled | Change vs starting network (95% CI) |
-|---|---|---|---|---|---|
-| baseline | 100 | 0.00 | 8% | −22 | −22 (−56, +12) |
-| scaled (10×) | 1,000 | 0.00 | 12% | +10 | +10 (−26, +45) |
-| assisted | 100 | 0.30 | 19% | +21 | **+31 (+3, +60)** |
+*The July run's draw cycle (one seed, old draw rule).*
 
-- **The draw cycle is real.** From iteration 3, every baseline self-play game ends in
-  threefold repetition, and the value loss collapses toward zero because the outcome
-  target is 0 almost everywhere. Ten times the self-play leaves 88% of games undecided.
-- **Strength is measured against the network each arm started from** (seed 42, rebuilt
-  by [`tools/no_learning_control.py`](tools/no_learning_control.py)), under the search the
-  arm was evaluated with. Only the material-assisted arm shows a measurable gain, and only
-  just, from one seed.
-- **Correction (2026-11-14).** An earlier version of this README said the assist "flips Elo
-  from −21 to +28" and that the plateau is "primarily a signal problem." That compared arms
-  evaluated with different searches (the assisted network had the material heuristic in its
-  search at evaluation time), with no starting-network reference and no intervals. The
-  untrained-network controls also show initialisation alone moves Elo vs random by over 100
-  points across seeds. See [technical report §5.4](docs/technical-report.md).
-
-- **A rule artifact.** Games ended as soon as a repetition could be *claimed* (python-chess
-  allows that when a repeating move is merely available), so the July draw counts are inflated and
-  the search scored such positions as dead draws. Fixed, with `--legacy-draw-claims` to reproduce
-  the old behaviour; the shipped network still ends its self-play games in real repetitions
-  ([report §5.5](docs/technical-report.md)).
-- **The value head, measured directly** ([`tools/value_probe.py`](tools/value_probe.py)): the shipped
-  network scores "up a queen" only 0.003 above "down a queen" on a −1 to +1 scale.
-
-Settling it takes three training seeds per arm, under the corrected rule:
-[`notebooks/seeds_rerun.ipynb`](notebooks/seeds_rerun.ipynb) runs them on a Kaggle T4 (about nine
-hours), measures every network against its own starting network (vs random and vs a one-ply
-material-greedy opponent), probes every value head, and runs one legacy-rule seed to size the
-rule's effect.
-
-**To reproduce** the original run, `python run_experiment.py --device cuda` (all three stages, resumable).
-A ready-made Kaggle notebook is included in `notebooks/`.
+**To reproduce** the rerun, run [`notebooks/seeds_rerun.ipynb`](notebooks/seeds_rerun.ipynb) on a Kaggle T4.
+Training takes about 11.5 h, so run the starting-network controls (its section 3 onward) on a
+second session or locally, then `python tools/summarise_seeds.py`. The July run is
+`python run_experiment.py --device cuda --legacy-draw-claims`.
 
 ---
 

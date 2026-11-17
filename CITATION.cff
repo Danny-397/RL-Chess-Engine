@@ -23,8 +23,10 @@ abstract: >-
   available the agent remains weak. A "draw cycle" in which self-play collapses
   into threefold repetition is reported rather than tuned away, and each
   experimental arm is measured against the network it started from, with
-  confidence intervals; only the material-assisted arm shows a measurable,
-  marginal gain, from a single training seed. The
+  confidence intervals. Across three training seeds per arm, training inside
+  the draw cycle leaves the network worse than its random initialisation
+  (-93 Elo vs random, 95% CI -125 to -60), and a material-assisted search only
+  holds its ground (+6, -19 to +31). The
   live demo deliberately plays a torch-free alpha-beta searcher and says so, so
   the deployed site does not imply the network is stronger than it is.
 keywords:

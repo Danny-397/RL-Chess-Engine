@@ -161,3 +161,12 @@ It is the same lesson as the rest of this project, one level up: the most convin
 explanation still has to be tested against the boring one, and that includes my own
 analysis. The full correction is in [technical report §5.4](technical-report.md).
 
+Then I ran the experiment that would settle it: three training seeds per arm, a fixed
+draw rule, and every network compared with its own starting network. The small gain
+didn't hold. Pooled over three seeds, the assisted arm is unchanged in its own search
+(+6 Elo, 95% CI −19, +31), and the baseline got *worse* than the random network it
+started from: −93 against random, −155 against a one-ply material grabber. Training on
+games that are nearly all draws didn't just fail to teach the network; it taught it
+something that loses. That is a cleaner result than the one I first reported, and a
+less flattering one, and it's the one the data supports ([report §5.8](technical-report.md)).
+
