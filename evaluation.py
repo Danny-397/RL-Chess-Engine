@@ -130,6 +130,8 @@ class NetworkAgent:
             mcts_cfg = dataclasses.replace(mcts_cfg, num_simulations=num_simulations)
         if material_weight is not None:
             mcts_cfg = dataclasses.replace(mcts_cfg, material_weight=material_weight)
+        # Contempt is a self-play device; measure the network with neutral draws.
+        mcts_cfg = dataclasses.replace(mcts_cfg, draw_contempt=0.0)
         self.mcts = MCTS(network, mcts_cfg)
 
     def select_move(self, game: ChessGame) -> chess.Move:

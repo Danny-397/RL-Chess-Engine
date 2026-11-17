@@ -1,0 +1,640 @@
+{
+ "what": "three training seeds per arm (baseline, material-assisted w=0.30), corrected draw rule, each network measured against its own starting network",
+ "hardware": "Kaggle T4, 2026-11-15/16 (training); starting-network controls on CPU",
+ "training": "10 iterations x 10 self-play games x 100 sims per arm; final evals 50 games, 50 sims",
+ "pooled": [
+  {
+   "arm": "material",
+   "eval": "random, own search",
+   "trained": -19,
+   "start": 74,
+   "change": -93,
+   "ci": [
+    -122,
+    -63
+   ],
+   "trained_wdl": [
+    4,
+    134,
+    12
+   ],
+   "start_wdl": [
+    87,
+    189,
+    24
+   ]
+  },
+  {
+   "arm": "material",
+   "eval": "random, w=0",
+   "trained": -19,
+   "start": 74,
+   "change": -93,
+   "ci": [
+    -122,
+    -63
+   ],
+   "trained_wdl": [
+    4,
+    134,
+    12
+   ],
+   "start_wdl": [
+    87,
+    189,
+    24
+   ]
+  },
+  {
+   "arm": "material",
+   "eval": "greedy, w=0",
+   "trained": -500,
+   "start": -369,
+   "change": -130,
+   "ci": [
+    -233,
+    -28
+   ],
+   "trained_wdl": [
+    0,
+    16,
+    134
+   ],
+   "start_wdl": [
+    4,
+    56,
+    240
+   ]
+  }
+ ],
+ "per_seed": [
+  {
+   "seed": 1,
+   "arm": "material",
+   "eval": "random, own search",
+   "trained": -14,
+   "start": 135,
+   "change": -149,
+   "ci": [
+    -206,
+    -92
+   ],
+   "trained_wdl": [
+    2,
+    44,
+    4
+   ],
+   "start_wdl": [
+    42,
+    53,
+    5
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "material",
+   "eval": "random, own search",
+   "trained": -21,
+   "start": 119,
+   "change": -140,
+   "ci": [
+    -197,
+    -82
+   ],
+   "trained_wdl": [
+    2,
+    43,
+    5
+   ],
+   "start_wdl": [
+    39,
+    55,
+    6
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "material",
+   "eval": "random, own search",
+   "trained": -21,
+   "start": -24,
+   "change": 3,
+   "ci": [
+    -34,
+    41
+   ],
+   "trained_wdl": [
+    0,
+    47,
+    3
+   ],
+   "start_wdl": [
+    6,
+    81,
+    13
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "material",
+   "eval": "random, w=0",
+   "trained": -14,
+   "start": 135,
+   "change": -149,
+   "ci": [
+    -206,
+    -92
+   ],
+   "trained_wdl": [
+    2,
+    44,
+    4
+   ],
+   "start_wdl": [
+    42,
+    53,
+    5
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "material",
+   "eval": "random, w=0",
+   "trained": -21,
+   "start": 119,
+   "change": -140,
+   "ci": [
+    -197,
+    -82
+   ],
+   "trained_wdl": [
+    2,
+    43,
+    5
+   ],
+   "start_wdl": [
+    39,
+    55,
+    6
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "material",
+   "eval": "random, w=0",
+   "trained": -21,
+   "start": -24,
+   "change": 3,
+   "ci": [
+    -34,
+    41
+   ],
+   "trained_wdl": [
+    0,
+    47,
+    3
+   ],
+   "start_wdl": [
+    6,
+    81,
+    13
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "material",
+   "eval": "greedy, w=0",
+   "trained": -552,
+   "start": -372,
+   "change": -180,
+   "ci": [
+    -502,
+    142
+   ],
+   "trained_wdl": [
+    0,
+    4,
+    46
+   ],
+   "start_wdl": [
+    3,
+    15,
+    82
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "material",
+   "eval": "greedy, w=0",
+   "trained": -478,
+   "start": -372,
+   "change": -106,
+   "ci": [
+    -301,
+    90
+   ],
+   "trained_wdl": [
+    0,
+    6,
+    44
+   ],
+   "start_wdl": [
+    1,
+    19,
+    80
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "material",
+   "eval": "greedy, w=0",
+   "trained": -478,
+   "start": -363,
+   "change": -115,
+   "ci": [
+    -308,
+    78
+   ],
+   "trained_wdl": [
+    0,
+    6,
+    44
+   ],
+   "start_wdl": [
+    0,
+    22,
+    78
+   ]
+  }
+ ],
+ "self_play_termination": {
+  "seed1-material/baseline": {
+   "games": 100,
+   "checkmates": 13,
+   "repetitions": 80,
+   "non_decisive": 0.87,
+   "non_decisive_iter3_10": 0.938
+  },
+  "seed2-material/baseline": {
+   "games": 100,
+   "checkmates": 13,
+   "repetitions": 78,
+   "non_decisive": 0.87,
+   "non_decisive_iter3_10": 0.912
+  },
+  "seed3-material/baseline": {
+   "games": 100,
+   "checkmates": 5,
+   "repetitions": 88,
+   "non_decisive": 0.95,
+   "non_decisive_iter3_10": 0.988
+  }
+ },
+ "legacy_rule_seed1_baseline_eval": null,
+ "value_probe": {
+  "value_probe.json": {
+   "what": "value head on level positions and the same positions with one queen removed (side to move up / down a queen), side-to-move perspective",
+   "positions": 300,
+   "position_seed": 0,
+   "results": [
+    {
+     "mean_value": {
+      "level": -0.1134,
+      "up": -0.1134,
+      "down": -0.1134
+     },
+     "up_minus_down": -0.0,
+     "up_minus_down_95ci": [
+      -0.0001,
+      -0.0
+     ],
+     "share_up_above_down": 0.2433,
+     "value_spread_sd": 0.0006,
+     "network": "untrained (seed 42)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0682,
+      "up": 0.1111,
+      "down": 0.0515
+     },
+     "up_minus_down": 0.0596,
+     "up_minus_down_95ci": [
+      0.0366,
+      0.0827
+     ],
+     "share_up_above_down": 0.6533,
+     "value_spread_sd": 0.4011,
+     "network": "experiment_out/seed1/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0014,
+      "up": 0.0038,
+      "down": 0.0038
+     },
+     "up_minus_down": 0.0,
+     "up_minus_down_95ci": [
+      -0.0035,
+      0.0035
+     ],
+     "share_up_above_down": 0.4167,
+     "value_spread_sd": 0.0779,
+     "network": "experiment_out/seed1/assisted.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": -0.0286,
+      "up": -0.0262,
+      "down": -0.0252
+     },
+     "up_minus_down": -0.001,
+     "up_minus_down_95ci": [
+      -0.0165,
+      0.0145
+     ],
+     "share_up_above_down": 0.4433,
+     "value_spread_sd": 0.1803,
+     "network": "experiment_out/seed2/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0228,
+      "up": 0.0209,
+      "down": 0.0218
+     },
+     "up_minus_down": -0.0009,
+     "up_minus_down_95ci": [
+      -0.0214,
+      0.0196
+     ],
+     "share_up_above_down": 0.4933,
+     "value_spread_sd": 0.2999,
+     "network": "experiment_out/seed2/assisted.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": -0.0328,
+      "up": -0.0281,
+      "down": -0.0374
+     },
+     "up_minus_down": 0.0093,
+     "up_minus_down_95ci": [
+      -0.0004,
+      0.019
+     ],
+     "share_up_above_down": 0.5033,
+     "value_spread_sd": 0.1457,
+     "network": "experiment_out/seed3/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0169,
+      "up": 0.0168,
+      "down": 0.0168
+     },
+     "up_minus_down": 0.0,
+     "up_minus_down_95ci": [
+      -0.02,
+      0.02
+     ],
+     "share_up_above_down": 0.48,
+     "value_spread_sd": 0.3058,
+     "network": "experiment_out/seed3/assisted.pt (iteration 10)"
+    }
+   ]
+  },
+  "value_probe_material.json": {
+   "what": "value head on level positions and the same positions with one queen removed (side to move up / down a queen), side-to-move perspective",
+   "positions": 300,
+   "position_seed": 0,
+   "results": [
+    {
+     "mean_value": {
+      "level": 0.084,
+      "up": 0.1504,
+      "down": 0.0731
+     },
+     "up_minus_down": 0.0773,
+     "up_minus_down_95ci": [
+      0.0538,
+      0.1008
+     ],
+     "share_up_above_down": 0.7033,
+     "value_spread_sd": 0.501,
+     "network": "experiment_out/seed1-material/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0745,
+      "up": 0.0823,
+      "down": 0.0408
+     },
+     "up_minus_down": 0.0415,
+     "up_minus_down_95ci": [
+      0.0195,
+      0.0635
+     ],
+     "share_up_above_down": 0.6167,
+     "value_spread_sd": 0.5135,
+     "network": "experiment_out/seed2-material/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0061,
+      "up": 0.0564,
+      "down": -0.0875
+     },
+     "up_minus_down": 0.1439,
+     "up_minus_down_95ci": [
+      0.1216,
+      0.1662
+     ],
+     "share_up_above_down": 0.8,
+     "value_spread_sd": 0.3416,
+     "network": "experiment_out/seed3-material/baseline.pt (iteration 10)"
+    }
+   ]
+  }
+ },
+ "start_controls": {
+  "random": {
+   "what": "untrained (random-init) ChessNet + MCTS vs random",
+   "opponent": "random",
+   "draw_rule": "actual",
+   "network": "4 residual blocks x 64 channels, random init, no training",
+   "sims_per_move": 50,
+   "max_moves": 200,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "games_per_seed": 100,
+   "arms": [
+    {
+     "material_weight": 0.0,
+     "games": 300,
+     "wins": 87,
+     "draws": 189,
+     "losses": 24,
+     "score": 0.605,
+     "elo": 74,
+     "elo_95ci": [
+      51,
+      98
+     ],
+     "per_seed": [
+      {
+       "seed": 1,
+       "wins": 42,
+       "draws": 53,
+       "losses": 5,
+       "seconds": 12240.3
+      },
+      {
+       "seed": 2,
+       "wins": 39,
+       "draws": 55,
+       "losses": 6,
+       "seconds": 12366.4
+      },
+      {
+       "seed": 3,
+       "wins": 6,
+       "draws": 81,
+       "losses": 13,
+       "seconds": 12985.9
+      }
+     ]
+    },
+    {
+     "material_weight": 0.3,
+     "games": 300,
+     "wins": 13,
+     "draws": 271,
+     "losses": 16,
+     "score": 0.495,
+     "elo": -3,
+     "elo_95ci": [
+      -16,
+      9
+     ],
+     "per_seed": [
+      {
+       "seed": 1,
+       "wins": 2,
+       "draws": 92,
+       "losses": 6,
+       "seconds": 12964.0
+      },
+      {
+       "seed": 2,
+       "wins": 2,
+       "draws": 93,
+       "losses": 5,
+       "seconds": 13077.7
+      },
+      {
+       "seed": 3,
+       "wins": 9,
+       "draws": 86,
+       "losses": 5,
+       "seconds": 12874.7
+      }
+     ]
+    }
+   ],
+   "seconds": 13094
+  },
+  "greedy": {
+   "what": "untrained (random-init) ChessNet + MCTS vs greedy",
+   "opponent": "greedy",
+   "draw_rule": "actual",
+   "network": "4 residual blocks x 64 channels, random init, no training",
+   "sims_per_move": 50,
+   "max_moves": 200,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "games_per_seed": 100,
+   "arms": [
+    {
+     "material_weight": 0.0,
+     "games": 300,
+     "wins": 4,
+     "draws": 56,
+     "losses": 240,
+     "score": 0.1067,
+     "elo": -369,
+     "elo_95ci": [
+      -420,
+      -328
+     ],
+     "per_seed": [
+      {
+       "seed": 1,
+       "wins": 3,
+       "draws": 15,
+       "losses": 82,
+       "seconds": 3305.9
+      },
+      {
+       "seed": 2,
+       "wins": 1,
+       "draws": 19,
+       "losses": 80,
+       "seconds": 3441.3
+      },
+      {
+       "seed": 3,
+       "wins": 0,
+       "draws": 22,
+       "losses": 78,
+       "seconds": 3413.3
+      }
+     ]
+    },
+    {
+     "material_weight": 0.3,
+     "games": 300,
+     "wins": 14,
+     "draws": 126,
+     "losses": 160,
+     "score": 0.2567,
+     "elo": -185,
+     "elo_95ci": [
+      -216,
+      -156
+     ],
+     "per_seed": [
+      {
+       "seed": 1,
+       "wins": 6,
+       "draws": 44,
+       "losses": 50,
+       "seconds": 3779.5
+      },
+      {
+       "seed": 2,
+       "wins": 1,
+       "draws": 48,
+       "losses": 51,
+       "seconds": 3905.7
+      },
+      {
+       "seed": 3,
+       "wins": 7,
+       "draws": 34,
+       "losses": 59,
+       "seconds": 3856.1
+      }
+     ]
+    }
+   ],
+   "seconds": 3912
+  }
+ }
+}

@@ -91,12 +91,18 @@ class MCTSConfig:
     #: Blend a simple material count into each leaf evaluation during self-play
     #: and at play time: ``value = (1 - w) * network_value + w * material``.
     #: ``0.0`` is pure AlphaZero (zero self-play signal beyond game outcome).
-    #: GPU experiments (2026-07-14) show ``0.30`` breaks the draw cycle --
-    #: non-decisive self-play rate drops from 100 % to 70 % and Elo vs random
-    #: flips from -21 to +28 at the same compute budget (see
-    #: ``docs/experiment-results.md``).  Set to ``0.0`` to reproduce the
-    #: baseline draw-cycle behaviour.
+    #: ``0.30`` is the play-time default; as a *training* setting it did not
+    #: reliably help (three-seed rerun, ``docs/experiment-results.md``).
     material_weight: float = 0.30
+
+    #: Contempt: the value of a drawn *terminal* position to the player to move
+    #: at the root is ``-draw_contempt`` (and ``+draw_contempt`` to the
+    #: opponent).  With every value near 0, a repetition is as good as any other
+    #: move, so self-play drifts into threefolds; a small contempt makes the side
+    #: to move prefer a non-drawing move.  Root perspective changes every ply in
+    #: self-play, so *both* sides avoid the draw.  Used for self-play only:
+    #: evaluation always searches with ``0.0``.
+    draw_contempt: float = 0.0
 
 
 # --------------------------------------------------------------------------- #

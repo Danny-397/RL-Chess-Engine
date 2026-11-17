@@ -374,6 +374,17 @@ def encode_board(board: chess.Board) -> np.ndarray:
 #: Read from the environment so worker processes (which re-import) inherit it.
 END_ON_CLAIMABLE_DRAWS = os.environ.get("RLCHESS_LEGACY_DRAW_CLAIMS") == "1"
 
+#: Before 2026-11-17 :meth:`ChessGame.clone` copied the board with
+#: ``stack=False``, dropping the move history.  MCTS searches on such clones, so
+#: inside the search tree ``is_repetition(3)`` could only count positions reached
+#: *within the tree*: a move that completed a threefold with earlier positions of
+#: the actual game looked like any other move, and the search could not see the
+#: draw it was walking into.  Clones now keep the reversible part of the history
+#: (the last ``halfmove_clock`` plies; nothing before an irreversible move can
+#: repeat).  Set this to ``True`` (env ``RLCHESS_LEGACY_SEARCH_HISTORY=1`` or
+#: ``run_experiment.py --legacy-search-history``) to reproduce runs before then.
+CLONE_WITHOUT_HISTORY = os.environ.get("RLCHESS_LEGACY_SEARCH_HISTORY") == "1"
+
 
 # --------------------------------------------------------------------------- #
 # The game wrapper
@@ -410,10 +421,15 @@ class ChessGame:
     def clone(self) -> "ChessGame":
         """Return a deep copy of the game (used heavily by MCTS).
 
-        ``stack=False`` skips copying the full move history, which we do not need
-        during search and which makes cloning noticeably cheaper.
+        Only the reversible part of the move history is copied: the last
+        ``halfmove_clock`` plies, which is everything a repetition can involve
+        (a capture or pawn move makes every earlier position unreachable).  That
+        keeps cloning cheap while letting the search see repetitions with the
+        game's earlier positions.  See :data:`CLONE_WITHOUT_HISTORY`.
         """
-        return ChessGame(self.board.copy(stack=False))
+        if CLONE_WITHOUT_HISTORY:
+            return ChessGame(self.board.copy(stack=False))
+        return ChessGame(self.board.copy(stack=self.board.halfmove_clock))
 
     # ---- terminal detection ------------------------------------------------ #
     def is_terminal(self) -> bool:
