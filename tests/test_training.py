@@ -353,3 +353,48 @@ def test_exported_onnx_accepts_a_batch(tmp_path):
     sess = _ort().InferenceSession(path, providers=["CPUExecutionProvider"])
     out = sess.run(["value"], {"board": np.random.randn(5, NUM_INPUT_PLANES, 8, 8).astype(np.float32)})[0]
     assert out.shape[0] == 5
+
+
+# --------------------------------------------------------------------------- #
+# Draw value targets (TrainingConfig.draw_value_target)
+# --------------------------------------------------------------------------- #
+def test_material_draw_target_is_zero_when_level_and_signed_by_side():
+    import chess
+    from self_play import draw_target_white
+
+    assert draw_target_white(chess.Board()) == 0.0
+    # White a queen up; the sign must not depend on who is to move.
+    w_to_move = chess.Board("4k3/8/8/8/8/8/8/3QK3 w - - 0 1")
+    b_to_move = chess.Board("4k3/8/8/8/8/8/8/3QK3 b - - 0 1")
+    assert draw_target_white(w_to_move) > 0.7
+    assert abs(draw_target_white(w_to_move) - draw_target_white(b_to_move)) < 1e-12
+
+
+def _drawn_game_examples(target: str):
+    """Self-play that is cut off at once by the length cap, from a queen-up start."""
+    import chess
+    import self_play
+    from chess_game import ChessGame
+
+    cfg = Config()
+    cfg.mcts.num_simulations = 2
+    cfg.training.max_moves = 2
+    cfg.training.draw_value_target = target
+    start = "4k3/8/8/8/8/8/8/3QK3 w - - 0 1"
+    orig = self_play.ChessGame
+    self_play.ChessGame = lambda: ChessGame(chess.Board(start))
+    try:
+        return self_play.play_game(ChessNet(cfg.network).eval(), cfg).examples
+    finally:
+        self_play.ChessGame = orig
+
+
+def test_zero_draw_target_keeps_alphazero_targets():
+    assert all(e.value == 0.0 for e in _drawn_game_examples("zero"))
+
+
+def test_material_draw_target_credits_the_side_that_was_ahead():
+    ex = _drawn_game_examples("material")
+    assert len(ex) == 2
+    assert ex[0].value > 0.5      # White to move, White a queen up
+    assert ex[1].value < -0.5     # Black to move, Black a queen down

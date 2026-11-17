@@ -45,7 +45,7 @@ import numpy as np
 import chess
 import chess.pgn
 
-from chess_game import ChessGame
+from chess_game import ChessGame, material_score
 from config import Config, NUM_ACTIONS
 from mcts import MCTS, action_probabilities
 
@@ -80,6 +80,16 @@ class GameResult:
     examples: List[TrainingExample] = field(default_factory=list)
     result: str = "*"
     pgn: str = ""
+
+
+def draw_target_white(board: chess.Board) -> float:
+    """Material adjudication of a non-decisive game, from White's perspective.
+
+    ``material_score`` is from the side to move's perspective, so flip it when
+    Black is to move. A level position gives exactly 0, the AlphaZero draw target.
+    """
+    m = material_score(board)
+    return m if board.turn == chess.WHITE else -m
 
 
 def _policy_vector(game: ChessGame, moves, probs) -> np.ndarray:
@@ -177,6 +187,10 @@ def play_game(
 
     # ---- assign value targets from the final result -----------------------
     white_result = game.result_white()  # +1 / 0 / -1 from White's perspective
+    if white_result == 0 and config.training.draw_value_target == "material":
+        white_result = draw_target_white(game.board)
+    elif config.training.draw_value_target not in ("zero", "material"):
+        raise ValueError(f"unknown draw_value_target {config.training.draw_value_target!r}")
     for example, player in zip(examples, players):
         # Convert White's result into the perspective of the player to move.
         example.value = white_result if player == chess.WHITE else -white_result

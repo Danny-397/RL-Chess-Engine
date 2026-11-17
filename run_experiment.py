@@ -171,6 +171,8 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
         "games_per_iter": cfg.training.games_per_iteration,
         "simulations": cfg.mcts.num_simulations,
         "material_weight": cfg.mcts.material_weight,
+        "draw_value_target": cfg.training.draw_value_target,
+        "temperature_moves": cfg.training.temperature_moves,
         "total_self_play_games": sum(r["games"] for r in per_iter.values()),
         "final_non_decisive_rate": round(asp.non_decisive_rate(final_row), 4),
         "final_checkmate_rate": round(
@@ -453,6 +455,15 @@ def main() -> None:
     # eval knobs
     p.add_argument("--eval-games", type=int, default=50)
     p.add_argument("--eval-sims", type=int, default=50)
+    p.add_argument("--temperature-plies", type=int, default=None,
+                   help="Sample self-play moves in proportion to visit counts for this many "
+                        "plies before playing greedily (default: config, 15).")
+    p.add_argument("--draw-target", choices=["zero", "material"], default="zero",
+                   help="Value target for non-decisive self-play games: 0 (AlphaZero) or "
+                        "the final material balance (see TrainingConfig.draw_value_target).")
+    p.add_argument("--tag", default=None,
+                   help="Suffix for the output directory, e.g. --seed 1 --tag explore "
+                        "writes to experiment_out/seed1-explore/.")
     p.add_argument("--legacy-draw-claims", action="store_true",
                    help="End games when a draw can merely be claimed (the rule before "
                         "2026-11-14, used by the 2026-07-14 run); see chess_game.END_ON_CLAIMABLE_DRAWS.")
@@ -471,6 +482,8 @@ def main() -> None:
         OUT_DIR = os.path.join(OUT_DIR, f"seed{args.seed}")
     if args.legacy_draw_claims:
         OUT_DIR = OUT_DIR + "-legacy-draws"
+    if args.tag:
+        OUT_DIR = OUT_DIR + "-" + args.tag
 
     if args.quick:
         args.device = "cpu"
@@ -519,6 +532,9 @@ def main() -> None:
     for c in (baseline_cfg, scaled_cfg, assisted_cfg, combined_cfg):
         if args.seed is not None:
             c.training.seed = args.seed
+        if args.temperature_plies is not None:
+            c.training.temperature_moves = args.temperature_plies
+        c.training.draw_value_target = args.draw_target
         # Checkpoints stay inside this run's directory: train() writes best.pt,
         # and checkpoints/best.pt is the committed network the website serves.
         c.training.checkpoint_dir = os.path.join(OUT_DIR, "checkpoints")

@@ -73,8 +73,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dir", default="experiment_out")
     ap.add_argument("--out", default=os.path.join("docs", "data", "seeds_rerun_2026-11.json"))
+    ap.add_argument("--tags", nargs="*", default=[],
+                    help="extra arms trained with run_experiment.py --tag T (baseline stage), "
+                         "read from seed{N}-T/; e.g. --tags explore explore-material")
+    ap.add_argument("--no-default-arms", action="store_true",
+                    help="summarise only the --tags arms (still needs start_*.json)")
     args = ap.parse_args()
     d = args.dir
+    # arm name -> (directory suffix, stage file name)
+    arms = {} if args.no_default_arms else {a: ("", a) for a in ARMS}
+    for t in args.tags:
+        arms[t] = ("-" + t, "baseline")
 
     start = {o: json.load(open(os.path.join(d, f"start_{o}.json"))) for o in ("random", "greedy")}
 
@@ -84,11 +93,11 @@ def main() -> int:
         return MatchResult(c["wins"], c["draws"], c["losses"], [])
 
     per_seed, pooled = [], []
-    for arm in ARMS:
+    for arm, (suffix, stage) in arms.items():
         for label, key, opp, sw in EVALS:
             tot_t = tot_s = MatchResult(0, 0, 0, [])
             for s in SEEDS:
-                r = json.load(open(os.path.join(d, f"seed{s}", f"{arm}.result.json")))
+                r = json.load(open(os.path.join(d, f"seed{s}{suffix}", f"{stage}.result.json")))
                 w = r["material_weight"] if sw is None else sw
                 t = MatchResult(r[f"{key}_wins"], r[f"{key}_draws"], r[f"{key}_losses"], [])
                 st = start_cell(opp, w, s)
@@ -96,13 +105,19 @@ def main() -> int:
                 tot_t, tot_s = add(tot_t, t), add(tot_s, st)
             pooled.append({"arm": arm, "eval": label, **change(tot_t, tot_s)})
 
-    term = {f"seed{s}/{a}": termination(os.path.join(d, f"seed{s}", f"term_{a}.csv"))
-            for s in SEEDS for a in ARMS}
-    term["seed1-legacy-draws/baseline"] = termination(
-        os.path.join(d, "seed1-legacy-draws", "term_baseline.csv"))
-    legacy = json.load(open(os.path.join(d, "seed1-legacy-draws", "baseline.result.json")))
+    term = {f"seed{s}{suffix}/{stage}": termination(os.path.join(d, f"seed{s}{suffix}", f"term_{stage}.csv"))
+            for s in SEEDS for suffix, stage in arms.values()}
+    legacy = None
+    if not args.no_default_arms:
+        term["seed1-legacy-draws/baseline"] = termination(
+            os.path.join(d, "seed1-legacy-draws", "term_baseline.csv"))
+        legacy = json.load(open(os.path.join(d, "seed1-legacy-draws", "baseline.result.json")))
 
-    probe = json.load(open(os.path.join(d, "value_probe.json")))
+    probe = {}
+    for name in ["value_probe.json"] + [f"value_probe_{t}.json" for t in args.tags]:
+        path = os.path.join(d, name)
+        if os.path.exists(path):
+            probe[name] = json.load(open(path))
 
     out = {
         "what": "three training seeds per arm (baseline, material-assisted w=0.30), corrected draw rule, "
@@ -112,7 +127,8 @@ def main() -> int:
         "pooled": pooled,
         "per_seed": per_seed,
         "self_play_termination": term,
-        "legacy_rule_seed1_baseline_eval": {k: legacy[k] for k in legacy if "eval" in k},
+        "legacy_rule_seed1_baseline_eval": ({k: legacy[k] for k in legacy if "eval" in k}
+                                            if legacy else None),
         "value_probe": probe,
         "start_controls": start,
     }

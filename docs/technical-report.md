@@ -229,7 +229,7 @@ down with tests:
   promotions. Tested by `test_move_encoding_roundtrip_white` /
   `_promotions` and `test_move_index_in_range_for_all_legal_start_moves`.
 
-The full suite (50 tests, run in CI) also covers terminal values
+The full suite (53 tests, run in CI) also covers terminal values
 (`test_terminal_value_checkmate`, `test_stalemate_is_a_draw`,
 `test_insufficient_material_is_a_draw`), search behaviour
 (`test_mcts_returns_valid_distribution`, `test_mcts_is_deterministic_without_noise`,
@@ -572,7 +572,7 @@ adjudication of won positions, or value targets that are not all zero), not to s
 ## 10. Reproducibility
 
 **Repository.** <https://github.com/Danny-397/RL-Chess-Engine> (MIT). The code is
-~4,200 lines (excluding tests); the 50-test suite runs in CI on every push.
+~4,200 lines (excluding tests); the 53-test suite runs in CI on every push.
 
 **Environment.** `pip install -r requirements-train.txt` (adds PyTorch to the
 light runtime deps in `requirements.txt`). The GPU results in §5 were produced on

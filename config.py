@@ -119,6 +119,14 @@ class TrainingConfig:
     #: proportion to MCTS visit counts (temperature = 1) to encourage diverse
     #: openings.  Afterwards we play greedily (temperature -> 0).
     temperature_moves: int = 15
+    #: Value target for self-play games that end without checkmate (repetition,
+    #: fifty-move rule, stalemate, insufficient material or the length cap).
+    #: ``"zero"`` is AlphaZero: a draw is 0 for both sides. ``"material"``
+    #: adjudicates by the final position's material balance instead
+    #: (``chess_game.material_score``, about +0.8 for a queen up), so a drawn game
+    #: still tells the value head who was ahead. It is human knowledge in the
+    #: *targets*, unlike ``MCTSConfig.material_weight``, which puts it in the search.
+    draw_value_target: str = "zero"
     #: Hard cap on game length so self-play cannot run forever in shuffly,
     #: drawish positions produced by a weak early network.
     max_moves: int = 200
