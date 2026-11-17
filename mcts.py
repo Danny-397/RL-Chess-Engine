@@ -130,6 +130,10 @@ class MCTS:
             if scratch.is_terminal():
                 # Exact outcome from the perspective of the side to move at the leaf.
                 value = scratch.terminal_value()
+                if value == 0.0 and self.config.draw_contempt:
+                    # Drawn leaf: worth -contempt to the root player.
+                    c = self.config.draw_contempt
+                    value = -c if scratch.turn == game.turn else c
             else:
                 value = self._expand(node, scratch)
 

@@ -457,3 +457,80 @@ def test_legacy_claim_rule_reproduces_the_july_run(monkeypatch):
     monkeypatch.setattr(chess_game, "END_ON_CLAIMABLE_DRAWS", True)
     assert ChessGame(board).is_terminal()
 
+
+
+# --------------------------------------------------------------------------- #
+# The search sees the game's history (repetitions) -- 2026-11-17
+# --------------------------------------------------------------------------- #
+class _FlatNet:
+    """Uniform priors, value 0 everywhere: a stand-in for a flat value head."""
+
+    def predict(self, state):
+        return np.zeros(NUM_ACTIONS, dtype=np.float32), 0.0
+
+
+def _one_move_from_threefold() -> ChessGame:
+    """Start position seen twice; Black's Ng8 would make it three."""
+    return ChessGame(_shuffle(chess.Board(), 1, extra=("Nf3", "Nf6", "Ng1")))
+
+
+def test_search_copies_see_a_repetition_with_earlier_game_positions():
+    """The bug: clones dropped the move stack, so a threefold completed against
+    positions from before the search root was invisible to MCTS."""
+    scratch = _one_move_from_threefold().clone()
+    scratch.push(chess.Move.from_uci("f6g8"))
+    assert scratch.is_terminal() and scratch.terminal_value() == 0.0
+
+
+def test_legacy_history_free_clone_reproduces_the_bug(monkeypatch):
+    import chess_game
+    monkeypatch.setattr(chess_game, "CLONE_WITHOUT_HISTORY", True)
+    scratch = _one_move_from_threefold().clone()
+    scratch.push(chess.Move.from_uci("f6g8"))
+    assert not scratch.is_terminal()
+
+
+def test_clone_keeps_only_the_reversible_history():
+    board = chess.Board()
+    for san in ("e4", "e5", "Nf3", "Nc6", "Ng1", "Nb8"):
+        board.push_san(san)
+    clone = ChessGame(board).clone()
+    assert len(clone.board.move_stack) == board.halfmove_clock == 4
+    assert clone.board.fen() == board.fen()
+
+
+def _repeat_q(contempt: float) -> float:
+    """Q of the repeating move, from the root player's (Black's) perspective."""
+    cfg = Config()
+    cfg.mcts.num_simulations = 64
+    cfg.mcts.material_weight = 0.0
+    cfg.mcts.draw_contempt = contempt
+    game = _one_move_from_threefold()
+    root = MCTS(_FlatNet(), cfg.mcts).run(game, add_exploration_noise=False)
+    child = root.children[chess.Move.from_uci("f6g8")]
+    assert child.visit_count > 0
+    return -child.value()
+
+
+def test_contempt_makes_the_repeating_move_worse_for_the_root_player():
+    assert _repeat_q(0.0) == pytest.approx(0.0)
+    assert _repeat_q(0.2) == pytest.approx(-0.2)
+
+
+def test_contempt_leaves_the_search_choice_off_the_repetition():
+    cfg = Config()
+    cfg.mcts.num_simulations = 200
+    cfg.mcts.material_weight = 0.0
+    cfg.mcts.draw_contempt = 0.2
+    root = MCTS(_FlatNet(), cfg.mcts).run(_one_move_from_threefold(), add_exploration_noise=False)
+    moves, probs = action_probabilities(root, temperature=0.0)
+    assert moves[int(probs.argmax())] != chess.Move.from_uci("f6g8")
+
+
+def test_evaluation_always_searches_without_contempt():
+    from evaluation import NetworkAgent
+    cfg = _fast_config()
+    cfg.mcts.draw_contempt = 0.2
+    agent = NetworkAgent(ChessNet(cfg.network), cfg)
+    assert agent.mcts.config.draw_contempt == 0.0
+    assert cfg.mcts.draw_contempt == pytest.approx(0.2)   # shared config untouched

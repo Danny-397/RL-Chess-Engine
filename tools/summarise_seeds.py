@@ -78,6 +78,9 @@ def main() -> int:
                          "read from seed{N}-T/; e.g. --tags explore explore-material")
     ap.add_argument("--no-default-arms", action="store_true",
                     help="summarise only the --tags arms (still needs start_*.json)")
+    ap.add_argument("--start-suffix", default="",
+                    help="read start_<opponent><suffix>.json, e.g. '-history' for the start "
+                         "controls re-measured with the history-aware search (2026-11-17)")
     args = ap.parse_args()
     d = args.dir
     # arm name -> (directory suffix, stage file name)
@@ -85,7 +88,7 @@ def main() -> int:
     for t in args.tags:
         arms[t] = ("-" + t, "baseline")
 
-    start = {o: json.load(open(os.path.join(d, f"start_{o}.json"))) for o in ("random", "greedy")}
+    start = {o: json.load(open(os.path.join(d, f"start_{o}{args.start_suffix}.json"))) for o in ("random", "greedy")}
 
     def start_cell(opp: str, w: float, seed: int) -> MatchResult:
         arm = next(a for a in start[opp]["arms"] if abs(a["material_weight"] - w) < 1e-9)

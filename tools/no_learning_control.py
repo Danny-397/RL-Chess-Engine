@@ -88,6 +88,8 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--legacy-draw-claims", action="store_true",
                     help="end games on a merely claimable draw, as before 2026-11-14")
+    ap.add_argument("--legacy-search-history", action="store_true",
+                    help="search on history-free board copies, as before 2026-11-17")
     ap.add_argument("--opponent", choices=["random", "greedy"], default="random",
                     help="random mover, or a one-ply material grabber (MaterialGreedyAgent)")
     ap.add_argument("--out", default=os.path.join("docs", "data", "no_learning_control.json"))
@@ -95,17 +97,27 @@ def main() -> int:
 
     if args.legacy_draw_claims:
         os.environ["RLCHESS_LEGACY_DRAW_CLAIMS"] = "1"       # inherited by the pool workers
+    if args.legacy_search_history:
+        os.environ["RLCHESS_LEGACY_SEARCH_HISTORY"] = "1"
+    # The env vars reach spawned workers (Windows); forked workers (Linux) inherit
+    # the already-imported module, so set its flags too.
+    import chess_game
+    chess_game.END_ON_CLAIMABLE_DRAWS = bool(args.legacy_draw_claims)
+    chess_game.CLONE_WITHOUT_HISTORY = bool(args.legacy_search_history)
+    # --weight 0 measures only the pure-network arm (half the work).
+    weights = (0.0,) if args.weight == 0 else (0.0, args.weight)
     seeds = ([int(x) for x in args.seed_values.split(",")] if args.seed_values
              else list(range(1, args.seeds + 1)))
     t0 = time.time()
-    tasks = [(w, s, args.games, args.sims, args.opponent) for w in (0.0, args.weight) for s in seeds]
+    tasks = [(w, s, args.games, args.sims, args.opponent) for w in weights for s in seeds]
     with multiprocessing.Pool(args.workers) as pool:
         cells = pool.map(run_one, tasks, chunksize=1)
-    arms = [summarise(w, cells) for w in (0.0, args.weight)]
+    arms = [summarise(w, cells) for w in weights]
     out = {
         "what": f"untrained (random-init) ChessNet + MCTS vs {args.opponent}",
         "opponent": args.opponent,
         "draw_rule": "claimable (legacy)" if args.legacy_draw_claims else "actual",
+        "search_history": not args.legacy_search_history,
         "network": "4 residual blocks x 64 channels, random init, no training",
         "sims_per_move": args.sims,
         "max_moves": Config().training.max_moves,

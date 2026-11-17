@@ -172,6 +172,8 @@ def run_stage(name: str, cfg: Config, eval_games: int, eval_sims: int) -> Dict:
         "simulations": cfg.mcts.num_simulations,
         "material_weight": cfg.mcts.material_weight,
         "draw_value_target": cfg.training.draw_value_target,
+        "draw_contempt": cfg.mcts.draw_contempt,
+        "search_history": os.environ.get("RLCHESS_LEGACY_SEARCH_HISTORY") != "1",
         "temperature_moves": cfg.training.temperature_moves,
         "total_self_play_games": sum(r["games"] for r in per_iter.values()),
         "final_non_decisive_rate": round(asp.non_decisive_rate(final_row), 4),
@@ -461,6 +463,13 @@ def main() -> None:
     p.add_argument("--draw-target", choices=["zero", "material"], default="zero",
                    help="Value target for non-decisive self-play games: 0 (AlphaZero) or "
                         "the final material balance (see TrainingConfig.draw_value_target).")
+    p.add_argument("--contempt", type=float, default=0.0,
+                   help="Self-play draw contempt: a drawn terminal is worth -C to the "
+                        "player to move at the root (see MCTSConfig.draw_contempt). "
+                        "Evaluation always uses 0.")
+    p.add_argument("--legacy-search-history", action="store_true",
+                   help="Search on history-free board copies, as before 2026-11-17, so "
+                        "repetitions with earlier game positions are invisible to MCTS.")
     p.add_argument("--tag", default=None,
                    help="Suffix for the output directory, e.g. --seed 1 --tag explore "
                         "writes to experiment_out/seed1-explore/.")
@@ -478,6 +487,10 @@ def main() -> None:
         os.environ["RLCHESS_LEGACY_DRAW_CLAIMS"] = "1"
         import chess_game
         chess_game.END_ON_CLAIMABLE_DRAWS = True
+    if args.legacy_search_history:
+        os.environ["RLCHESS_LEGACY_SEARCH_HISTORY"] = "1"
+        import chess_game
+        chess_game.CLONE_WITHOUT_HISTORY = True
     if args.seed is not None:
         OUT_DIR = os.path.join(OUT_DIR, f"seed{args.seed}")
     if args.legacy_draw_claims:
@@ -535,6 +548,7 @@ def main() -> None:
         if args.temperature_plies is not None:
             c.training.temperature_moves = args.temperature_plies
         c.training.draw_value_target = args.draw_target
+        c.mcts.draw_contempt = args.contempt
         # Checkpoints stay inside this run's directory: train() writes best.pt,
         # and checkpoints/best.pt is the committed network the website serves.
         c.training.checkpoint_dir = os.path.join(OUT_DIR, "checkpoints")
