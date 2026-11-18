@@ -2,10 +2,10 @@
 
 > **Technical report.** A from-scratch AlphaZero-style chess engine: the
 > implementation, a controlled study of the training plateau I call the *draw
-> cycle*, and the engineering decisions behind a deployed, honest demo. All
-> empirical figures in §5 come from a real GPU run (Kaggle, 2× Tesla T4,
-> 2026-07-14, ~9.8 h training); the full per-iteration data is in
-> [`experiment-results.md`](experiment-results.md).
+> cycle*, and the engineering decisions behind a deployed, honest demo. §5.1–5.7 use a
+> GPU run of 2026-07-14 (Kaggle, 2× Tesla T4, ~9.8 h; data in
+> [`experiment-results.md`](experiment-results.md)); §5.8–5.10 use three-seed reruns of
+> November 2026, with data under [`data/`](data/).
 
 ---
 
@@ -40,7 +40,15 @@ were evaluated with different searches), had no starting-network reference and n
 intervals; §5.4 explains the correction and the control experiments behind it. Two later
 checks sharpen the picture: draws were detected with a rule that ended games when a repetition
 was merely available (§5.5, now fixed), and a direct probe of the shipped value head shows it
-barely distinguishes up a queen from down a queen (§5.6). The
+barely distinguishes up a queen from down a queen (§5.6).
+
+The last two experiments test whether the draw cycle is what makes training fail. Giving drawn
+games a material value target changed nothing (−93, §5.9). Then I found that the search could not
+see repetitions involving positions from before its root, fixed it, and added self-play contempt
+(§5.10). With contempt and the material target, repetitions fell from 82% of self-play games to
+16% and checkmates tripled, yet the network still declined by the same amount (−91 Elo, 95% CI
+−123, −60). **Breaking the draw cycle did not stop the decline**, so the cycle is not its cause; the
+likeliest remaining one is too little data, which this compute cannot test. The
 project also ships a deployed web app: a classical alpha-beta engine (about 1390 against
 strength-limited Stockfish) as an honestly labelled opponent, and the trained network
 running in the browser via ONNX behind a JavaScript↔Python encoding self-check.
@@ -229,7 +237,7 @@ down with tests:
   promotions. Tested by `test_move_encoding_roundtrip_white` /
   `_promotions` and `test_move_index_in_range_for_all_legal_start_moves`.
 
-The full suite (53 tests, run in CI) also covers terminal values
+The full suite (59 tests, run in CI) also covers terminal values
 (`test_terminal_value_checkmate`, `test_stalemate_is_a_draw`,
 `test_insufficient_material_is_a_draw`), search behaviour
 (`test_mcts_returns_valid_distribution`, `test_mcts_is_deterministic_without_noise`,
@@ -445,6 +453,63 @@ against both yardsticks. The material assist did not make training work; it kept
 combined engine level with its start, while its network, judged alone, degraded as much as
 the baseline's. The July single-seed gain of +31 for the assisted arm does not replicate.
 
+### 5.9 A material value target for drawn games
+
+If all-zero value targets are the problem, give drawn games a non-zero one.
+`--draw-target material` sets the value target of every game that ends without checkmate to the
+final position's material balance (`tanh(pawns/8)`, about +0.8 for a queen up). Everything else
+is the rerun's baseline: seeds 1–3, 10 × 10 games × 100 simulations
+([`notebooks/draw_fixes.ipynb`](../notebooks/draw_fixes.ipynb),
+[`data/draw_material_2026-11.json`](data/draw_material_2026-11.json)).
+
+Against its own start the network changed by **−93 Elo (−122, −63)** against random and −130
+(−233, −28) against the greedy opponent, indistinguishable from the baseline. Self-play stayed
+87–95% non-decisive, mostly threefold repetitions. The value heads did learn more material: up
+minus down a queen +0.04 to +0.14 ([`data/value_probe_material_2026-11.json`](data/value_probe_material_2026-11.json)),
+against 0.00 to +0.06 in §5.8. A value head that knows a queen matters was not enough to change play.
+
+### 5.10 A search that could not see repetitions, and contempt
+
+**The bug.** MCTS searches on copies of the root position made by `ChessGame.clone()`, which
+used `board.copy(stack=False)` and so dropped the move history. Inside the tree,
+`is_repetition(3)` could only count positions reached within the search: a move that completed a
+threefold with positions from earlier in the game looked like any other move. The game itself
+ended at the real threefold, so the search walked into repetitions it could not see. It was found
+by reading the code, not by an experiment. Clones now keep the reversible history (the last
+`halfmove_clock` plies; nothing before a capture or pawn move can repeat) at no measurable cost
+(about 0.6 s per 100-simulation move either way); a test reproduces the old behaviour, and
+`--legacy-search-history` restores it. Every result in §5.1–5.9 used the old search.
+
+**Contempt.** With values near zero everywhere, a repetition is as good as any other move.
+`MCTSConfig.draw_contempt` (`--contempt C`) scores a drawn leaf as −C for the player to move at the
+root and +C for the opponent; the root changes every ply in self-play, so both sides avoid draws.
+Evaluation always uses C = 0.
+
+**The experiment** ([`notebooks/draw_contempt.ipynb`](../notebooks/draw_contempt.ipynb),
+[`data/draw_contempt_2026-11.json`](data/draw_contempt_2026-11.json)). Three arms with the fixed
+search, seeds 1–3, otherwise the baseline settings, run side by side on two T4s. The starting
+networks were re-measured with the fixed search
+([`data/start_network_control_history.json`](data/start_network_control_history.json)): +73 against
+random (from +74) and −366 against greedy (from −369), so the fix does not move the reference.
+Totals over 300 self-play games per arm:
+
+| Arm | Repetitions | Checkmates | 200-move cap | vs random: change (95% CI) | vs greedy: change (95% CI) | Value probe, up − down |
+|---|---|---|---|---|---|---|
+| fixed search | 246 | 32 | 22 | −94 (−128, −60) | −36 (−117, +45) | −0.00 to +0.06 |
+| + contempt 0.2 | 178 | 49 | 73 | −91 (−121, −62) | −83 (−173, +7) | +0.01 to +0.08 |
+| + contempt + material target | 49 | 94 | 157 | **−91 (−123, −60)** | −29 (−111, +53) | +0.05 to +0.20 |
+
+Contempt with the material target broke the cycle: repetitions fell from 82% of self-play games
+to 16% and checkmates tripled. Most games that stopped repeating ran to the 200-move cap instead,
+but under the material target those still carry an informative value target, and this arm's value
+heads learned the most material of any network in the study. Against random, every arm still lost
+about 91–94 Elo relative to its start; against greedy the intervals are too wide to separate them.
+
+**What this changes.** The draw cycle is real, and it can be broken, but breaking it did not stop
+the decline. So it is not the cause of the degradation in §5.8. The likeliest remaining explanation
+is scale: 10 iterations of 10 games is very little data, and the network fits its own few games.
+These runs can rule the draw cycle out; they cannot test that.
+
 ---
 
 ## 6. The Draw Cycle
@@ -478,9 +543,10 @@ hypothesis by scaling compute while holding the code fixed. §5.4 shows the othe
 that discipline: each arm has to be compared with its own starting point, under the same
 search, with intervals, before any lever gets credit.
 
-**A likely secondary factor.** Real AlphaZero includes **move-history planes** in the
-board encoding, which help the network reason about repetition; their absence here
-plausibly deepens the draw cycle and is a natural future-work item (§8).
+**A cause of the cycle, not of the decline.** The search could not see repetitions with earlier
+game positions (§5.10), which plausibly deepened the cycle; with that fixed and contempt added,
+the cycle largely broke. But the network declined just as much (§5.10), so the draw cycle explains
+why self-play games end the way they do, not why training makes the network worse.
 
 ---
 
@@ -541,13 +607,13 @@ design.
 - **The draw rule.** All July numbers ended games on a merely claimable repetition (§5.5).
 - **The playable network is weak.** The site serves `checkpoints/best.pt`, the seed-1
   material-assisted network from the rerun (§5.8), picked before any results were seen.
-- **Move-history planes (the encoding hypothesis).** Real AlphaZero stacks the last
-  *T* positions in its input, which helps the network reason about repetition, a
-  plausible further cause of the draw cycle. Adding them is non-trivial because MCTS
-  clones the board with `stack=False` and rebuilds positions by replaying from the root,
-  so pre-root history is not consistently available inside the search; it has to be
-  threaded through so self-play and leaf evaluation see the same encoding.
-- **Larger networks and more compute**, once the seeds above make a comparison possible.
+- **The move cap.** In the contempt arms most games that stopped repeating hit the 200-move cap
+  rather than ending in mate (§5.10).
+- **Move-history planes.** The network input still has no history planes; the search now sees
+  repetitions (§5.10), the network does not.
+- **Where this stops.** At 100 self-play games per run, an idea can be ruled out cleanly but
+  rarely ruled in. The open question, whether far more data stops the decline, needs far more
+  compute; this study ends with §5.10.
 
 ## 9. Conclusion
 
@@ -565,14 +631,18 @@ and drew a clean conclusion from it. Rebuilding the starting network and measuri
 against it (§5.4) left a smaller and more honest result: the draw cycle is real, extra
 compute does not escape it, and the material assist looked like the only arm with a
 marginal gain. Three seeds per arm (§5.8) then removed that gain and showed something
-starker: training inside the draw cycle makes the network worse than where it started. The
-next step is to change the training signal itself (move-history planes, resignation or
-adjudication of won positions, or value targets that are not all zero), not to scale up.
+starker: training inside the draw cycle makes the network worse than where it started.
+
+The last two experiments tested the obvious explanation, that the cycle itself causes the decline.
+A material value target taught the value head material but changed nothing; fixing a search bug
+and adding contempt broke the cycle, and the network declined just as much. Fixing the thing I
+blamed was the only way to learn it was not the cause. What remains, too little data, is a
+question for far more compute than this project has.
 
 ## 10. Reproducibility
 
 **Repository.** <https://github.com/Danny-397/RL-Chess-Engine> (MIT). The code is
-~4,200 lines (excluding tests); the 53-test suite runs in CI on every push.
+~4,200 lines (excluding tests); the 59-test suite runs in CI on every push.
 
 **Environment.** `pip install -r requirements-train.txt` (adds PyTorch to the
 light runtime deps in `requirements.txt`). The GPU results in §5 were produced on

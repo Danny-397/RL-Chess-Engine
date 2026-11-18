@@ -33,12 +33,13 @@ finding out why, including retracting my own first answer.
 | 14 Nov | Found the flaw: each arm was evaluated with its own training search, with no comparison to the network it started from. **Withdrew the headline**, and fixed a draw rule that ended games before anyone had repeated. |
 | 15–16 Nov | Reran properly: three seeds per arm, every network against its own start. Training inside the cycle made the network **worse** (−93 Elo vs random, 95% CI −125 to −60). The July gain did not replicate. |
 | 16–17 Nov | Scoring drawn games by material: the value head learned a little, play did not change (−93 again). Reading the search code found a bug: it could not see repetitions of earlier positions in the game. Fixed, with a test that reproduces it. |
-| Now | One last run with the fixed search, alone and with contempt (each side treats a draw as slightly bad for itself in self-play). |
+| 18 Nov | The last test: fixed search + contempt (each side treats a draw as slightly bad for itself in self-play) + the material target. Repetitions fell from 82% of self-play games to 16% and checkmates tripled, but the network still got **worse by the same amount** (−91, 95% CI −123 to −60). The cycle was real; it was not the cause. |
 
 **What I took from it:** one run with no reference point can produce a convincing effect
 that is not there. The habits that caught it, a starting-network control, several seeds,
 and an interval on every number, are now how every result here is measured. The two real
-bugs were found by reading code, not by more GPU time.
+bugs were found by reading code, not by more GPU time, and fixing the thing I blamed was the only
+way to learn it was not the cause.
 
 Full write-up: the [Findings page](https://rlchess.xyz/#findings), the
 [technical report](docs/technical-report.md), and [the story behind it](docs/reflection.md).
@@ -385,8 +386,23 @@ against random, the same as the baseline, with 87–95% of self-play still non-d
 Separately, `ChessGame.clone()` dropped the move history, so MCTS could not see a threefold
 involving positions from before the search root. Clones now keep the reversible history;
 every number above used the old search (`--legacy-search-history` reproduces it).
-[`notebooks/draw_contempt.ipynb`](notebooks/draw_contempt.ipynb) tests the fixed search alone and
-with self-play contempt (`--contempt 0.2`).
+
+**Breaking the cycle (2026-11-18).** [`notebooks/draw_contempt.ipynb`](notebooks/draw_contempt.ipynb):
+the fixed search, three seeds per arm, 300 self-play games per arm, against starting networks
+re-measured with the fixed search (+73 vs random, unchanged from +74)
+([data](docs/data/draw_contempt_2026-11.json)):
+
+| Arm | Repetitions | Checkmates | 200-move cap | Change vs start, Elo (95% CI) |
+|---|---|---|---|---|
+| fixed search | 246 | 32 | 22 | −94 (−128, −60) |
+| + contempt 0.2 | 178 | 49 | 73 | −91 (−121, −62) |
+| + contempt + material target | 49 | 94 | 157 | **−91 (−123, −60)** |
+
+Contempt with the material target broke the cycle (repetitions 82% → 16%, checkmates ×3, most of
+the rest hitting the move cap, which still carry a material target) and its value heads learned the
+most material (+0.05 to +0.20). The network still declined by the same amount, so the draw cycle is
+not why training makes it worse; the likeliest remaining cause is too little data (100 games per run),
+which these runs cannot test. **This was the last training run.**
 
 The July GPU run (one seed per arm, [full data](docs/experiment-results.md)) is kept for
 the record. Its headline, "the assist flips Elo from −21 to +28: a signal problem, not
@@ -489,9 +505,8 @@ this one ran into, and how they were solved:
 
 ## Roadmap
 
-- With real compute: move-history planes in the network input (the standard AlphaZero repetition
-  fix). At 100 self-play games per run, ideas can be ruled out but rarely ruled in, so this repo
-  stops adding variations after the contempt run.
+- Finished as a study: at 100 self-play games per run, ideas can be ruled out but rarely ruled in.
+  With real compute, the open question is whether far more self-play data stops the decline.
 - Batched MCTS leaf evaluation to make GPU self-play far faster.
 
 ---

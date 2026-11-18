@@ -170,3 +170,17 @@ games that are nearly all draws didn't just fail to teach the network; it taught
 something that loses. That is a cleaner result than the one I first reported, and a
 less flattering one, and it's the one the data supports ([report §5.8](technical-report.md)).
 
+
+So I went after the cause I was sure of. Giving drawn games a material score taught the
+value head that a queen matters, and the engine played no better. Then, reading the search
+code rather than running anything, I found it couldn't see a repetition that involved
+positions from earlier in the game: it was walking into draws blind. I fixed that, and made
+each side treat a draw as slightly bad for itself. That finally broke the cycle: repetitions
+fell from 82% of self-play games to 16%, and checkmates tripled. The network still got worse
+by exactly as much as before.
+
+That was the most useful result of the whole project, and the least satisfying. The draw
+cycle was real, I could break it, and it was not what was making training fail. I only
+found that out by fixing the thing I blamed. What's left, that a hundred games is simply
+too little data, is a question for far more compute than I have, so this is where I stopped
+([report §5.9–5.10](technical-report.md)).

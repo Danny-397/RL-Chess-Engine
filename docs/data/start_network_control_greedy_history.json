@@ -1,0 +1,54 @@
+{
+  "what": "untrained (random-init) ChessNet + MCTS vs greedy",
+  "opponent": "greedy",
+  "draw_rule": "actual",
+  "search_history": true,
+  "network": "4 residual blocks x 64 channels, random init, no training",
+  "sims_per_move": 50,
+  "max_moves": 200,
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "games_per_seed": 100,
+  "arms": [
+    {
+      "material_weight": 0.0,
+      "games": 300,
+      "wins": 2,
+      "draws": 61,
+      "losses": 237,
+      "score": 0.1083,
+      "elo": -366,
+      "elo_95ci": [
+        -415,
+        -326
+      ],
+      "per_seed": [
+        {
+          "seed": 1,
+          "wins": 2,
+          "draws": 20,
+          "losses": 78,
+          "seconds": 2350.9
+        },
+        {
+          "seed": 2,
+          "wins": 0,
+          "draws": 19,
+          "losses": 81,
+          "seconds": 2195.2
+        },
+        {
+          "seed": 3,
+          "wins": 0,
+          "draws": 22,
+          "losses": 78,
+          "seconds": 1552.3
+        }
+      ]
+    }
+  ],
+  "seconds": 6099
+}

@@ -1,0 +1,52 @@
+{
+  "what": "value head on level positions and the same positions with one queen removed (side to move up / down a queen), side-to-move perspective",
+  "positions": 300,
+  "position_seed": 0,
+  "results": [
+    {
+      "mean_value": {
+        "level": 0.0392,
+        "up": 0.0679,
+        "down": -0.009
+      },
+      "up_minus_down": 0.0769,
+      "up_minus_down_95ci": [
+        0.0459,
+        0.108
+      ],
+      "share_up_above_down": 0.5833,
+      "value_spread_sd": 0.5236,
+      "network": "experiment_out/seed1-contempt/baseline.pt (iteration 10)"
+    },
+    {
+      "mean_value": {
+        "level": -0.013,
+        "up": -0.0075,
+        "down": -0.0141
+      },
+      "up_minus_down": 0.0066,
+      "up_minus_down_95ci": [
+        -0.0102,
+        0.0234
+      ],
+      "share_up_above_down": 0.5333,
+      "value_spread_sd": 0.303,
+      "network": "experiment_out/seed2-contempt/baseline.pt (iteration 10)"
+    },
+    {
+      "mean_value": {
+        "level": -0.0092,
+        "up": -0.0056,
+        "down": -0.0222
+      },
+      "up_minus_down": 0.0166,
+      "up_minus_down_95ci": [
+        0.0052,
+        0.028
+      ],
+      "share_up_above_down": 0.4633,
+      "value_spread_sd": 0.1173,
+      "network": "experiment_out/seed3-contempt/baseline.pt (iteration 10)"
+    }
+  ]
+}

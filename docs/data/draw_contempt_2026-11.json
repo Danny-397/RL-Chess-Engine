@@ -1,0 +1,1082 @@
+{
+ "what": "three training seeds per arm (baseline, material-assisted w=0.30), corrected draw rule, each network measured against its own starting network",
+ "hardware": "Kaggle T4, 2026-11-15/16 (training); starting-network controls on CPU",
+ "training": "10 iterations x 10 self-play games x 100 sims per arm; final evals 50 games, 50 sims",
+ "pooled": [
+  {
+   "arm": "history",
+   "eval": "random, own search",
+   "trained": -21,
+   "start": 73,
+   "change": -94,
+   "ci": [
+    -128,
+    -60
+   ],
+   "trained_wdl": [
+    11,
+    119,
+    20
+   ],
+   "start_wdl": [
+    84,
+    194,
+    22
+   ]
+  },
+  {
+   "arm": "history",
+   "eval": "random, w=0",
+   "trained": -21,
+   "start": 73,
+   "change": -94,
+   "ci": [
+    -128,
+    -60
+   ],
+   "trained_wdl": [
+    11,
+    119,
+    20
+   ],
+   "start_wdl": [
+    84,
+    194,
+    22
+   ]
+  },
+  {
+   "arm": "history",
+   "eval": "greedy, w=0",
+   "trained": -402,
+   "start": -366,
+   "change": -36,
+   "ci": [
+    -117,
+    45
+   ],
+   "trained_wdl": [
+    0,
+    27,
+    123
+   ],
+   "start_wdl": [
+    2,
+    61,
+    237
+   ]
+  },
+  {
+   "arm": "contempt",
+   "eval": "random, own search",
+   "trained": -19,
+   "start": 73,
+   "change": -91,
+   "ci": [
+    -121,
+    -62
+   ],
+   "trained_wdl": [
+    4,
+    134,
+    12
+   ],
+   "start_wdl": [
+    84,
+    194,
+    22
+   ]
+  },
+  {
+   "arm": "contempt",
+   "eval": "random, w=0",
+   "trained": -19,
+   "start": 73,
+   "change": -91,
+   "ci": [
+    -121,
+    -62
+   ],
+   "trained_wdl": [
+    4,
+    134,
+    12
+   ],
+   "start_wdl": [
+    84,
+    194,
+    22
+   ]
+  },
+  {
+   "arm": "contempt",
+   "eval": "greedy, w=0",
+   "trained": -449,
+   "start": -366,
+   "change": -83,
+   "ci": [
+    -173,
+    7
+   ],
+   "trained_wdl": [
+    0,
+    21,
+    129
+   ],
+   "start_wdl": [
+    2,
+    61,
+    237
+   ]
+  },
+  {
+   "arm": "contempt-material",
+   "eval": "random, own search",
+   "trained": -19,
+   "start": 73,
+   "change": -91,
+   "ci": [
+    -123,
+    -60
+   ],
+   "trained_wdl": [
+    8,
+    126,
+    16
+   ],
+   "start_wdl": [
+    84,
+    194,
+    22
+   ]
+  },
+  {
+   "arm": "contempt-material",
+   "eval": "random, w=0",
+   "trained": -19,
+   "start": 73,
+   "change": -91,
+   "ci": [
+    -123,
+    -60
+   ],
+   "trained_wdl": [
+    8,
+    126,
+    16
+   ],
+   "start_wdl": [
+    84,
+    194,
+    22
+   ]
+  },
+  {
+   "arm": "contempt-material",
+   "eval": "greedy, w=0",
+   "trained": -395,
+   "start": -366,
+   "change": -29,
+   "ci": [
+    -111,
+    53
+   ],
+   "trained_wdl": [
+    1,
+    26,
+    123
+   ],
+   "start_wdl": [
+    2,
+    61,
+    237
+   ]
+  }
+ ],
+ "per_seed": [
+  {
+   "seed": 1,
+   "arm": "history",
+   "eval": "random, own search",
+   "trained": -28,
+   "start": 104,
+   "change": -132,
+   "ci": [
+    -186,
+    -77
+   ],
+   "trained_wdl": [
+    1,
+    44,
+    5
+   ],
+   "start_wdl": [
+    36,
+    57,
+    7
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "history",
+   "eval": "random, own search",
+   "trained": -28,
+   "start": 111,
+   "change": -139,
+   "ci": [
+    -204,
+    -74
+   ],
+   "trained_wdl": [
+    4,
+    38,
+    8
+   ],
+   "start_wdl": [
+    38,
+    55,
+    7
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "history",
+   "eval": "random, own search",
+   "trained": -7,
+   "start": 7,
+   "change": -14,
+   "ci": [
+    -71,
+    43
+   ],
+   "trained_wdl": [
+    6,
+    37,
+    7
+   ],
+   "start_wdl": [
+    10,
+    82,
+    8
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "history",
+   "eval": "random, w=0",
+   "trained": -28,
+   "start": 104,
+   "change": -132,
+   "ci": [
+    -186,
+    -77
+   ],
+   "trained_wdl": [
+    1,
+    44,
+    5
+   ],
+   "start_wdl": [
+    36,
+    57,
+    7
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "history",
+   "eval": "random, w=0",
+   "trained": -28,
+   "start": 111,
+   "change": -139,
+   "ci": [
+    -204,
+    -74
+   ],
+   "trained_wdl": [
+    4,
+    38,
+    8
+   ],
+   "start_wdl": [
+    38,
+    55,
+    7
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "history",
+   "eval": "random, w=0",
+   "trained": -7,
+   "start": 7,
+   "change": -14,
+   "ci": [
+    -71,
+    43
+   ],
+   "trained_wdl": [
+    6,
+    37,
+    7
+   ],
+   "start_wdl": [
+    10,
+    82,
+    8
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "history",
+   "eval": "greedy, w=0",
+   "trained": -478,
+   "start": -346,
+   "change": -132,
+   "ci": [
+    -327,
+    63
+   ],
+   "trained_wdl": [
+    0,
+    6,
+    44
+   ],
+   "start_wdl": [
+    2,
+    20,
+    78
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "history",
+   "eval": "greedy, w=0",
+   "trained": -449,
+   "start": -392,
+   "change": -58,
+   "ci": [
+    -233,
+    118
+   ],
+   "trained_wdl": [
+    0,
+    7,
+    43
+   ],
+   "start_wdl": [
+    0,
+    19,
+    81
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "history",
+   "eval": "greedy, w=0",
+   "trained": -315,
+   "start": -363,
+   "change": 48,
+   "ci": [
+    -74,
+    169
+   ],
+   "trained_wdl": [
+    0,
+    14,
+    36
+   ],
+   "start_wdl": [
+    0,
+    22,
+    78
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "contempt",
+   "eval": "random, own search",
+   "trained": -14,
+   "start": 104,
+   "change": -118,
+   "ci": [
+    -169,
+    -66
+   ],
+   "trained_wdl": [
+    1,
+    46,
+    3
+   ],
+   "start_wdl": [
+    36,
+    57,
+    7
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "contempt",
+   "eval": "random, own search",
+   "trained": -35,
+   "start": 111,
+   "change": -146,
+   "ci": [
+    -203,
+    -89
+   ],
+   "trained_wdl": [
+    1,
+    43,
+    6
+   ],
+   "start_wdl": [
+    38,
+    55,
+    7
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "contempt",
+   "eval": "random, own search",
+   "trained": -7,
+   "start": 7,
+   "change": -14,
+   "ci": [
+    -56,
+    28
+   ],
+   "trained_wdl": [
+    2,
+    45,
+    3
+   ],
+   "start_wdl": [
+    10,
+    82,
+    8
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "contempt",
+   "eval": "random, w=0",
+   "trained": -14,
+   "start": 104,
+   "change": -118,
+   "ci": [
+    -169,
+    -66
+   ],
+   "trained_wdl": [
+    1,
+    46,
+    3
+   ],
+   "start_wdl": [
+    36,
+    57,
+    7
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "contempt",
+   "eval": "random, w=0",
+   "trained": -35,
+   "start": 111,
+   "change": -146,
+   "ci": [
+    -203,
+    -89
+   ],
+   "trained_wdl": [
+    1,
+    43,
+    6
+   ],
+   "start_wdl": [
+    38,
+    55,
+    7
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "contempt",
+   "eval": "random, w=0",
+   "trained": -7,
+   "start": 7,
+   "change": -14,
+   "ci": [
+    -56,
+    28
+   ],
+   "trained_wdl": [
+    2,
+    45,
+    3
+   ],
+   "start_wdl": [
+    10,
+    82,
+    8
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "contempt",
+   "eval": "greedy, w=0",
+   "trained": -512,
+   "start": -346,
+   "change": -165,
+   "ci": [
+    -395,
+    64
+   ],
+   "trained_wdl": [
+    0,
+    5,
+    45
+   ],
+   "start_wdl": [
+    2,
+    20,
+    78
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "contempt",
+   "eval": "greedy, w=0",
+   "trained": -402,
+   "start": -392,
+   "change": -10,
+   "ci": [
+    -163,
+    142
+   ],
+   "trained_wdl": [
+    0,
+    9,
+    41
+   ],
+   "start_wdl": [
+    0,
+    19,
+    81
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "contempt",
+   "eval": "greedy, w=0",
+   "trained": -449,
+   "start": -363,
+   "change": -86,
+   "ci": [
+    -259,
+    86
+   ],
+   "trained_wdl": [
+    0,
+    7,
+    43
+   ],
+   "start_wdl": [
+    0,
+    22,
+    78
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "contempt-material",
+   "eval": "random, own search",
+   "trained": -49,
+   "start": 104,
+   "change": -153,
+   "ci": [
+    -208,
+    -97
+   ],
+   "trained_wdl": [
+    0,
+    43,
+    7
+   ],
+   "start_wdl": [
+    36,
+    57,
+    7
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "contempt-material",
+   "eval": "random, own search",
+   "trained": -14,
+   "start": 111,
+   "change": -125,
+   "ci": [
+    -185,
+    -66
+   ],
+   "trained_wdl": [
+    3,
+    42,
+    5
+   ],
+   "start_wdl": [
+    38,
+    55,
+    7
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "contempt-material",
+   "eval": "random, own search",
+   "trained": 7,
+   "start": 7,
+   "change": 0,
+   "ci": [
+    -50,
+    50
+   ],
+   "trained_wdl": [
+    5,
+    41,
+    4
+   ],
+   "start_wdl": [
+    10,
+    82,
+    8
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "contempt-material",
+   "eval": "random, w=0",
+   "trained": -49,
+   "start": 104,
+   "change": -153,
+   "ci": [
+    -208,
+    -97
+   ],
+   "trained_wdl": [
+    0,
+    43,
+    7
+   ],
+   "start_wdl": [
+    36,
+    57,
+    7
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "contempt-material",
+   "eval": "random, w=0",
+   "trained": -14,
+   "start": 111,
+   "change": -125,
+   "ci": [
+    -185,
+    -66
+   ],
+   "trained_wdl": [
+    3,
+    42,
+    5
+   ],
+   "start_wdl": [
+    38,
+    55,
+    7
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "contempt-material",
+   "eval": "random, w=0",
+   "trained": 7,
+   "start": 7,
+   "change": 0,
+   "ci": [
+    -50,
+    50
+   ],
+   "trained_wdl": [
+    5,
+    41,
+    4
+   ],
+   "start_wdl": [
+    10,
+    82,
+    8
+   ]
+  },
+  {
+   "seed": 1,
+   "arm": "contempt-material",
+   "eval": "greedy, w=0",
+   "trained": -512,
+   "start": -346,
+   "change": -165,
+   "ci": [
+    -395,
+    64
+   ],
+   "trained_wdl": [
+    0,
+    5,
+    45
+   ],
+   "start_wdl": [
+    2,
+    20,
+    78
+   ]
+  },
+  {
+   "seed": 2,
+   "arm": "contempt-material",
+   "eval": "greedy, w=0",
+   "trained": -382,
+   "start": -392,
+   "change": 10,
+   "ci": [
+    -135,
+    155
+   ],
+   "trained_wdl": [
+    0,
+    10,
+    40
+   ],
+   "start_wdl": [
+    0,
+    19,
+    81
+   ]
+  },
+  {
+   "seed": 3,
+   "arm": "contempt-material",
+   "eval": "greedy, w=0",
+   "trained": -330,
+   "start": -363,
+   "change": 33,
+   "ci": [
+    -102,
+    168
+   ],
+   "trained_wdl": [
+    1,
+    11,
+    38
+   ],
+   "start_wdl": [
+    0,
+    22,
+    78
+   ]
+  }
+ ],
+ "self_play_termination": {
+  "seed1-history/baseline": {
+   "games": 100,
+   "checkmates": 15,
+   "repetitions": 77,
+   "non_decisive": 0.85,
+   "non_decisive_iter3_10": 0.95
+  },
+  "seed1-contempt/baseline": {
+   "games": 100,
+   "checkmates": 26,
+   "repetitions": 52,
+   "non_decisive": 0.74,
+   "non_decisive_iter3_10": 0.825
+  },
+  "seed1-contempt-material/baseline": {
+   "games": 100,
+   "checkmates": 30,
+   "repetitions": 31,
+   "non_decisive": 0.7,
+   "non_decisive_iter3_10": 0.787
+  },
+  "seed2-history/baseline": {
+   "games": 100,
+   "checkmates": 11,
+   "repetitions": 82,
+   "non_decisive": 0.89,
+   "non_decisive_iter3_10": 0.963
+  },
+  "seed2-contempt/baseline": {
+   "games": 100,
+   "checkmates": 18,
+   "repetitions": 48,
+   "non_decisive": 0.82,
+   "non_decisive_iter3_10": 0.887
+  },
+  "seed2-contempt-material/baseline": {
+   "games": 100,
+   "checkmates": 31,
+   "repetitions": 6,
+   "non_decisive": 0.69,
+   "non_decisive_iter3_10": 0.713
+  },
+  "seed3-history/baseline": {
+   "games": 100,
+   "checkmates": 6,
+   "repetitions": 87,
+   "non_decisive": 0.94,
+   "non_decisive_iter3_10": 0.988
+  },
+  "seed3-contempt/baseline": {
+   "games": 100,
+   "checkmates": 5,
+   "repetitions": 78,
+   "non_decisive": 0.95,
+   "non_decisive_iter3_10": 0.988
+  },
+  "seed3-contempt-material/baseline": {
+   "games": 100,
+   "checkmates": 33,
+   "repetitions": 12,
+   "non_decisive": 0.67,
+   "non_decisive_iter3_10": 0.688
+  }
+ },
+ "legacy_rule_seed1_baseline_eval": null,
+ "value_probe": {
+  "value_probe.json": {
+   "what": "value head on level positions and the same positions with one queen removed (side to move up / down a queen), side-to-move perspective",
+   "positions": 300,
+   "position_seed": 0,
+   "results": [
+    {
+     "mean_value": {
+      "level": -0.1134,
+      "up": -0.1134,
+      "down": -0.1134
+     },
+     "up_minus_down": -0.0,
+     "up_minus_down_95ci": [
+      -0.0001,
+      -0.0
+     ],
+     "share_up_above_down": 0.2433,
+     "value_spread_sd": 0.0006,
+     "network": "untrained (seed 42)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0682,
+      "up": 0.1111,
+      "down": 0.0515
+     },
+     "up_minus_down": 0.0596,
+     "up_minus_down_95ci": [
+      0.0366,
+      0.0827
+     ],
+     "share_up_above_down": 0.6533,
+     "value_spread_sd": 0.4011,
+     "network": "experiment_out/seed1/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0014,
+      "up": 0.0038,
+      "down": 0.0038
+     },
+     "up_minus_down": 0.0,
+     "up_minus_down_95ci": [
+      -0.0035,
+      0.0035
+     ],
+     "share_up_above_down": 0.4167,
+     "value_spread_sd": 0.0779,
+     "network": "experiment_out/seed1/assisted.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": -0.0286,
+      "up": -0.0262,
+      "down": -0.0252
+     },
+     "up_minus_down": -0.001,
+     "up_minus_down_95ci": [
+      -0.0165,
+      0.0145
+     ],
+     "share_up_above_down": 0.4433,
+     "value_spread_sd": 0.1803,
+     "network": "experiment_out/seed2/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0228,
+      "up": 0.0209,
+      "down": 0.0218
+     },
+     "up_minus_down": -0.0009,
+     "up_minus_down_95ci": [
+      -0.0214,
+      0.0196
+     ],
+     "share_up_above_down": 0.4933,
+     "value_spread_sd": 0.2999,
+     "network": "experiment_out/seed2/assisted.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": -0.0328,
+      "up": -0.0281,
+      "down": -0.0374
+     },
+     "up_minus_down": 0.0093,
+     "up_minus_down_95ci": [
+      -0.0004,
+      0.019
+     ],
+     "share_up_above_down": 0.5033,
+     "value_spread_sd": 0.1457,
+     "network": "experiment_out/seed3/baseline.pt (iteration 10)"
+    },
+    {
+     "mean_value": {
+      "level": 0.0169,
+      "up": 0.0168,
+      "down": 0.0168
+     },
+     "up_minus_down": 0.0,
+     "up_minus_down_95ci": [
+      -0.02,
+      0.02
+     ],
+     "share_up_above_down": 0.48,
+     "value_spread_sd": 0.3058,
+     "network": "experiment_out/seed3/assisted.pt (iteration 10)"
+    }
+   ]
+  }
+ },
+ "start_controls": {
+  "random": {
+   "what": "untrained (random-init) ChessNet + MCTS vs random",
+   "opponent": "random",
+   "draw_rule": "actual",
+   "search_history": true,
+   "network": "4 residual blocks x 64 channels, random init, no training",
+   "sims_per_move": 50,
+   "max_moves": 200,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "games_per_seed": 100,
+   "arms": [
+    {
+     "material_weight": 0.0,
+     "games": 300,
+     "wins": 84,
+     "draws": 194,
+     "losses": 22,
+     "score": 0.6033,
+     "elo": 73,
+     "elo_95ci": [
+      50,
+      96
+     ],
+     "per_seed": [
+      {
+       "seed": 1,
+       "wins": 36,
+       "draws": 57,
+       "losses": 7,
+       "seconds": 3941.5
+      },
+      {
+       "seed": 2,
+       "wins": 38,
+       "draws": 55,
+       "losses": 7,
+       "seconds": 4056.8
+      },
+      {
+       "seed": 3,
+       "wins": 10,
+       "draws": 82,
+       "losses": 8,
+       "seconds": 4512.0
+      }
+     ]
+    }
+   ],
+   "seconds": 4512
+  },
+  "greedy": {
+   "what": "untrained (random-init) ChessNet + MCTS vs greedy",
+   "opponent": "greedy",
+   "draw_rule": "actual",
+   "search_history": true,
+   "network": "4 residual blocks x 64 channels, random init, no training",
+   "sims_per_move": 50,
+   "max_moves": 200,
+   "seeds": [
+    1,
+    2,
+    3
+   ],
+   "games_per_seed": 100,
+   "arms": [
+    {
+     "material_weight": 0.0,
+     "games": 300,
+     "wins": 2,
+     "draws": 61,
+     "losses": 237,
+     "score": 0.1083,
+     "elo": -366,
+     "elo_95ci": [
+      -415,
+      -326
+     ],
+     "per_seed": [
+      {
+       "seed": 1,
+       "wins": 2,
+       "draws": 20,
+       "losses": 78,
+       "seconds": 2350.9
+      },
+      {
+       "seed": 2,
+       "wins": 0,
+       "draws": 19,
+       "losses": 81,
+       "seconds": 2195.2
+      },
+      {
+       "seed": 3,
+       "wins": 0,
+       "draws": 22,
+       "losses": 78,
+       "seconds": 1552.3
+      }
+     ]
+    }
+   ],
+   "seconds": 6099
+  }
+ }
+}
