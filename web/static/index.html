@@ -462,8 +462,9 @@ main:focus { outline: none; }
             measured against the network each run started from, training inside the cycle made the
             engine <em>worse</em>: about 93 Elo against a random mover and 155 against a material-grabbing
             one. Blending a material count into the search only held it level. An earlier single-seed
-            gain for that arm did not replicate. Scoring drawn games by material did not help either,
-            and a bug that hid repetitions from the search has been fixed.</p>
+            gain for that arm did not replicate. Fixing a search bug and adding contempt finally broke the cycle,
+            cutting repetitions from 82% of self-play games to 16%, but the network declined just as much.
+            The cycle was real; it was not the cause.</p>
           <div class="btn-row"><button class="text-link" data-goto="findings">Measurements and caveats</button></div>
         </div>
       </div>
@@ -619,7 +620,9 @@ main:focus { outline: none; }
         <div><dt>16&ndash;17 Nov</dt><dd>Two more suspects. Scoring drawn games by material taught the value head
           a little but changed nothing in play (&minus;93 again). Reading the search code turned up a bug: it
           could not see repetitions of earlier positions in the game. Fixed, with a test that reproduces it.</dd></div>
-        <div><dt>Now</dt><dd>One last run with the fixed search, alone and with contempt. Results below when it finishes.</dd></div>
+        <div><dt>18 Nov</dt><dd>The last test: with the fixed search, contempt and the material target,
+          repetitions fell from 82% of self-play games to 16% and checkmates tripled. The network still got
+          worse by the same amount (&minus;91). The cycle was real, but it was not what made training fail.</dd></div>
       </dl>
 
       <div class="note">
@@ -627,7 +630,8 @@ main:focus { outline: none; }
         <p>One run with no reference point can produce a convincing effect that is not there. The habits
           that caught it, a starting-network control, several seeds and an interval on every number,
           are now how everything here is measured. The two real bugs, though, were found by reading code,
-          not by spending more GPU time.</p>
+          not by spending more GPU time. And fixing the thing I blamed was the only way to learn it was not
+          the cause.</p>
       </div>
 
       <h2>The draw cycle</h2>
@@ -813,14 +817,41 @@ main:focus { outline: none; }
         position for the third time looked like any other move, so the search could not tell it was
         walking into a draw. The copies now keep the history that matters (everything since the last
         capture or pawn move), at no measurable cost, and a test reproduces the old behaviour. Every result
-        on this page used the old search.</p>
+        above used the old search; re-measured with the fixed one, the starting networks score the same
+        (+73 against random, from +74).</p>
+
+      <h2>Breaking the cycle</h2>
+      <p>The last test attacked the cycle directly. With the fixed search, I added contempt: during self-play,
+        each side counts a draw as slightly bad for itself (&minus;0.2), so neither is content to repeat.
+        Evaluation still scores draws as 0. Three arms, three seeds each, 300 self-play games per arm:</p>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Arm</th><th class="num">Repetitions</th><th class="num">Checkmates</th><th class="num">200-move cap</th><th class="num">Change vs start, Elo (95% CI)</th></tr></thead>
+          <tbody>
+            <tr><td>Fixed search</td><td class="num">246</td><td class="num">32</td><td class="num">22</td><td class="num">&minus;94 (&minus;128, &minus;60)</td></tr>
+            <tr><td>+ contempt</td><td class="num">178</td><td class="num">49</td><td class="num">73</td><td class="num">&minus;91 (&minus;121, &minus;62)</td></tr>
+            <tr class="em"><td>+ contempt + material target</td><td class="num">49</td><td class="num">94</td><td class="num">157</td><td class="num">&minus;91 (&minus;123, &minus;60)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Contempt with the material target did what it was built to do. Repetitions fell from 82% of games
+        to 16% and checkmates tripled. Most games that stopped repeating ran to the 200-move cap instead,
+        but under the material target those still tell the value head who was ahead, and this arm's value
+        heads learned the most material of any network here (up minus down a queen +0.05 to +0.20).</p>
+      <p>The network still lost 91 Elo against random relative to its start, the same as every other arm.
+        Against the greedy opponent the intervals are too wide to separate the arms. So the draw cycle is
+        not why training makes the network worse. The likeliest remaining explanation is scale: ten
+        iterations of ten games is very little data, and the network fits its own few games. These runs
+        cannot show that; they can only rule the draw cycle out.
+        (<a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/data/draw_contempt_2026-11.json" target="_blank" rel="noopener">data</a>)</p>
 
       <h2>What the data supports</h2>
       <ul>
         <li><strong>The draw cycle is real.</strong> From iteration 3, 89&ndash;100% of self-play games end without checkmate in every run, under either draw rule, and ten times the games did not escape it in July.</li>
         <li><strong>Training inside it made the network worse.</strong> Across three seeds the baseline ended below the random network it started from, against both yardsticks.</li>
         <li><strong>The material assist did not fix training.</strong> With the blend in its search the engine held level (+6); its network alone degraded like the baseline's. The July single-seed gain of +31 did not replicate.</li>
-        <li><strong>A material value target did not fix it either.</strong> &minus;93 against random, the same as the baseline, although its value head learned more about material.</li>
+        <li><strong>Breaking the cycle did not stop the decline.</strong> Contempt and a material target cut repetitions from 82% to 16% and tripled checkmates; the network still lost 91 Elo against its start.</li>
+        <li><strong>A material value target alone did not fix it either.</strong> &minus;93 against random, the same as the baseline, although its value head learned more about material.</li>
         <li><strong>The draw rule inflated the counts, not the cycle.</strong> Same seed, old rule 89% non-decisive, corrected rule 82%.</li>
         <li><strong>The original headline does not hold.</strong> “Signal, not compute: −21 → +28” compared networks evaluated with different searches, with no starting-network reference and no intervals.</li>
       </ul>
@@ -829,18 +860,18 @@ main:focus { outline: none; }
       <ul>
         <li>Three seeds and ten iterations per arm. The intervals are wide, especially against the greedy opponent, and much longer runs could behave differently. The 10× arm was not rerun.</li>
         <li>The GPU run's numbers are transcribed from its captured output; its raw logs and checkpoints were lost with the session. The transcription is in <a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/data/gpu_run_2026-07-14.json" target="_blank" rel="noopener">one JSON file</a>, and the figure is rebuilt from it.</li>
+        <li>In the contempt arms, most games that stopped repeating hit the 200-move cap rather than ending in mate.</li>
         <li>Random is a weak yardstick. It separates a broken engine from a working one, not a good engine from a better one.</li>
         <li>The network you can play on this site is the seed-1 material-assisted network from the rerun, chosen before any results were seen. It is weak, as the tables say.</li>
       </ul>
 
-      <h2>What next</h2>
-      <p>One run is in progress: the fixed search on its own, and with contempt, where during self-play each
-        side counts a draw as slightly bad for itself, so neither is content to repeat. Three seeds each, every
-        network against its own start (<a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/notebooks/draw_contempt.ipynb" target="_blank" rel="noopener">notebook</a>).</p>
-      <p>After that I am stopping. Each run here is 100 self-play games; AlphaZero trained on about 44 million.
-        At this size an idea can be ruled out cleanly but rarely ruled in, so more variations would mostly
-        add more null results. The one I would try with real compute is the standard fix: move-history
-        planes in the network's input, so it can see a repetition coming.</p>
+      <h2>Where this stops</h2>
+      <p>That was the last run. Each run here is 100 self-play games; AlphaZero trained on about 44 million.
+        The question I could answer at this scale, whether the draw cycle is what breaks training, is
+        answered: it is not. The explanation that remains, too little data, is one only far more compute
+        can test, so I have stopped adding variations. The
+        <a href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/notebooks/draw_contempt.ipynb" target="_blank" rel="noopener">notebook</a>
+        and the summary script reproduce every number on this page.</p>
 
       <div class="btn-row">
         <a class="btn ghost" href="https://github.com/Danny-397/RL-Chess-Engine/blob/main/docs/technical-report.md" target="_blank" rel="noopener">Technical report</a>
