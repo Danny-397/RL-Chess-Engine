@@ -279,6 +279,13 @@ main:focus { outline: none; }
   .settings-actions .btn { height: 34px; font-size: 13px; padding: 0 10px; }
   .toggle { display: flex; align-items: center; gap: 10px; margin-top: var(--s-3); font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
   .toggle input { width: 15px; height: 15px; margin: 0; accent-color: var(--brass); }
+  /* Touch screens: same layout, bigger targets (text buttons, option rows, footer links). */
+  @media (pointer: coarse) {
+    .text-link { display: inline-flex; align-items: center; min-height: 44px; }
+    .toggle { min-height: 40px; margin-top: var(--s-1); }
+    .toggle input { width: 18px; height: 18px; }
+    footer a { display: inline-block; padding: 4px 0; }
+  }
   .optrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: var(--s-3); font-size: 13.5px; color: var(--ink-2); }
   .optrow > span { flex: none; }
   .optrow select {
@@ -518,7 +525,7 @@ main:focus { outline: none; }
             </div>
           </div>
         </div>
-        <div class="statusrow"><span class="loader" id="spinner"></span><span id="status">You play White. Click a piece, then its destination, or drag it.</span></div>
+        <div class="statusrow"><span class="loader" id="spinner"></span><span id="status">You play White. Pick a piece, then its destination, or drag it.</span></div>
         <div class="opening" id="opening"></div>
         <div class="move-feedback" id="moveFeedback" aria-live="polite"></div>
       </div>
@@ -1525,7 +1532,7 @@ function newGame() {
   if (couch) {
     setStatus('Couch play — White to move. Take turns on this board.');
   } else {
-    setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — click or drag a piece to move it.`);
+    setStatus(`New game. You play ${humanColor === 'w' ? 'White' : 'Black'} — pick a piece, then its destination, or drag it.`);
     if (game.turn() !== humanColor) {              // engine opens (you chose Black)
       thinking = true; showSpinner(); setStatus('Engine is thinking…'); setTimeout(engineMove, 300);
     }
