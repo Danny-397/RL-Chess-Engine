@@ -17,15 +17,23 @@
 </p>
 <p align="center"><em>The Play view at rlchess.xyz: three opponents (the trained network alone, a hybrid search, and a classical alpha-beta engine), with move suggestions and an evaluation bar.</em></p>
 
-An **AlphaZero-style chess engine written from scratch in Python and PyTorch**, and an
-investigation into why its self-play training stalls.
+An **AlphaZero-style chess engine written from scratch in Python and PyTorch**: a
+residual policy/value network, Monte-Carlo tree search, and a self-play training loop
+that learns with no opening books and no human games. It is exported to ONNX and runs
+in your browser at [rlchess.xyz](https://rlchess.xyz/), alongside a classical alpha-beta
+engine. Around it is a controlled, multi-seed study of how self-play training behaves
+at small scale.
 
-## The short version
+## The research question
 
-The engine learns only from games against itself. At hobby scale those games collapse
-into threefold repetition within three iterations (the *draw cycle*), and a network
-trained on nothing but draws learns nothing useful. Most of this project is the work of
-finding out why, including retracting my own first answer.
+Self-play at hobby scale tends to collapse into threefold repetition within a few
+iterations (the *draw cycle*). The study asks whether that cycle is what stops the
+network from improving, using a starting-network control, three seeds per arm, and a
+confidence interval on every Elo figure. Two real bugs in the search were found and
+fixed along the way, each with a test that reproduces it.
+
+<details>
+<summary><b>Research log</b>: each experiment and what it showed</summary>
 
 | When | What happened |
 |---|---|
@@ -34,6 +42,8 @@ finding out why, including retracting my own first answer.
 | 15–16 Nov | Reran properly: three seeds per arm, every network against its own start. Training inside the cycle made the network **worse** (−93 Elo vs random, 95% CI −125 to −60). The July gain did not replicate. |
 | 16–17 Nov | Scoring drawn games by material: the value head learned a little, play did not change (−93 again). Reading the search code found a bug: it could not see repetitions of earlier positions in the game. Fixed, with a test that reproduces it. |
 | 18 Nov | The last test: fixed search + contempt (each side treats a draw as slightly bad for itself in self-play) + the material target. Repetitions fell from 82% of self-play games to 16% and checkmates tripled, but the network still got **worse by the same amount** (−91, 95% CI −123 to −60). The cycle was real; it was not the cause. |
+
+</details>
 
 **What I took from it:** one run with no reference point can produce a convincing effect
 that is not there. The habits that caught it, a starting-network control, several seeds,
