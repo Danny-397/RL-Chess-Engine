@@ -75,7 +75,7 @@ knowledge is on by default at play time: the network's search blends in a materi
 - **Reinforcement learning from scratch** — the full AlphaZero loop (network ↔ search ↔ self-play), no RL libraries.
 - **Search algorithms** — PUCT Monte-Carlo Tree Search *and* a classical alpha-beta engine (negamax, quiescence, piece-square evaluation).
 - **Deep learning in PyTorch** — a dual-headed residual CNN, custom loss, training loop and checkpointing.
-- **Software engineering** — modular design, a 61-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
+- **Software engineering** — modular design, a 62-test suite, CI, typed config, and a deployed full-stack web app (FastAPI + a hand-built board UI).
 - **Engineering judgement** — diagnosing and solving real problems under real constraints (see *Engineering decisions & challenges* below).
 
 ---

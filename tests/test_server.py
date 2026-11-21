@@ -22,3 +22,10 @@ def test_the_ui_depths_pass_through_unchanged(monkeypatch):
     for depth in (2, 3, 4):
         server._analyse(server.PositionRequest(fen=chess.STARTING_FEN, depth=depth))
     assert seen == [2, 3, 4]
+
+
+def test_a_bad_fen_is_a_400_not_a_crash():
+    from fastapi.testclient import TestClient
+
+    r = TestClient(server.app).post("/analyze", json={"fen": "not a position"})
+    assert r.status_code == 400 and r.json() == {"detail": "invalid FEN"}

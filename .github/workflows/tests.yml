@@ -30,7 +30,7 @@ jobs:
           # exported model the public site actually serves.
           # requirements.txt is what Vercel and Render install (python-chess,
           # fastapi), so the web API's tests run against the deployed versions.
-          pip install -r requirements.txt numpy pytest onnx onnxruntime onnxscript
+          pip install -r requirements.txt numpy pytest httpx onnx onnxruntime onnxscript
 
       - name: Run tests
         run: pytest -q
