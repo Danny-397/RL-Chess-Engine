@@ -28,7 +28,9 @@ jobs:
           # onnx/onnxruntime/onnxscript let the ONNX-vs-PyTorch parity tests run here;
           # without them they skipped, so CI passed 37/39 and never checked the
           # exported model the public site actually serves.
-          pip install python-chess numpy pytest onnx onnxruntime onnxscript
+          # requirements.txt is what Vercel and Render install (python-chess,
+          # fastapi), so the web API's tests run against the deployed versions.
+          pip install -r requirements.txt numpy pytest onnx onnxruntime onnxscript
 
       - name: Run tests
         run: pytest -q

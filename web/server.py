@@ -42,6 +42,11 @@ import search
 
 # Search depth (plies).  Higher = stronger but slower.  3 keeps the web snappy.
 _DEPTH = int(os.environ.get("RLCHESS_DEPTH", "3"))
+# Requests choose their depth, so it is capped: each extra ply multiplies the
+# work, and an uncapped "depth": 12 would run until the platform kills it.
+# The UI offers 2-4 (Easy/Normal/Hard).
+_MAX_DEPTH = max(4, _DEPTH)
+_MAX_TOP_N = 256  # the rating feature asks for every legal move (at most ~218)
 
 app = FastAPI(title="RL-Chess-Engine")
 
@@ -94,7 +99,9 @@ def _analyse(req: PositionRequest) -> dict:
     """Run the searcher on the requested position and return a JSON dict."""
     board = chess.Board(req.fen)
     depth = req.depth if req.depth is not None else _DEPTH
-    return search.analyze(board, depth=depth, top_n=req.top_n)
+    depth = max(1, min(depth, _MAX_DEPTH))
+    top_n = max(1, min(req.top_n, _MAX_TOP_N))
+    return search.analyze(board, depth=depth, top_n=top_n)
 
 
 # --------------------------------------------------------------------------- #
