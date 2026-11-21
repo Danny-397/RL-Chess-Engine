@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 import chess
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -97,7 +97,10 @@ class PositionRequest(BaseModel):
 
 def _analyse(req: PositionRequest) -> dict:
     """Run the searcher on the requested position and return a JSON dict."""
-    board = chess.Board(req.fen)
+    try:
+        board = chess.Board(req.fen)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="invalid FEN")
     depth = req.depth if req.depth is not None else _DEPTH
     depth = max(1, min(depth, _MAX_DEPTH))
     top_n = max(1, min(req.top_n, _MAX_TOP_N))
