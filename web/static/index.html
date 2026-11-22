@@ -152,31 +152,56 @@ main:focus { outline: none; }
   .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); }
 
   /* ---- home ---- */
-  /* The hero is one screen: headline on the left, the board on the right,
-     the board sized so all of it (and its caption) fits under the header.
-     --hero-room is the viewport height left for the screenshot. */
-  .hero-wrap { --hero-room: calc(100vh - 61px - 2 * var(--s-7) - 60px);
-    display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 56px; align-items: center;
-    min-height: calc(100vh - 61px); padding: var(--s-7) 0; }
-  @supports (height: 100svh) {
-    .hero-wrap { --hero-room: calc(100svh - 61px - 2 * var(--s-7) - 60px); min-height: calc(100svh - 61px); }
-  }
-  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(40px, 4vw, 58px); line-height: 1.04;
-    letter-spacing: -.01em; margin: 0 0 var(--s-5); text-wrap: balance; }
-  .hero .lead { font-size: 17.5px; line-height: 1.6; color: var(--ink-2); max-width: 600px; margin: 0 0 var(--s-6); }
-  .hero-media { margin: 0; justify-self: end; width: min(100%, calc(max(var(--hero-room), 280px) * 1600 / 944)); }
+  /* The hero fills the first screen: the headline takes the left, and a
+     live board takes the right, as large as the screen height allows. */
+  .hero-wrap { --vh: 100vh; --hero-pad: var(--s-6); --cap-h: 64px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(40px, 5vw, 88px); align-items: center;
+    min-height: calc(var(--vh) - 61px); padding: var(--hero-pad) 0; }
+  @supports (height: 100svh) { .hero-wrap { --vh: 100svh; } }
+  .hero { max-width: 640px; }
+  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(44px, 5.2vw, 84px); line-height: 1.0;
+    letter-spacing: -.015em; margin: 0 0 var(--s-6); text-wrap: balance; }
+  .hero .lead { font-size: clamp(17px, 1.35vw, 21px); line-height: 1.6; color: var(--ink-2); max-width: 540px; margin: 0 0 var(--s-7); }
+  .hero .btn { height: 50px; padding: 0 26px; font-size: 15.5px; }
+  .hero .text-link { font-size: 15.5px; }
+  .hero-media { margin: 0; width: min-content; }   /* as wide as the board; the caption wraps to it */
+  /* Board edge: the smaller of the height left under the header (minus
+     padding, frame and caption) and the width left beside 480px of text. */
+  .board-frame.hero-frame { --pad: 24px;
+    --size: min(780px, calc(var(--vh) - 61px - 2 * var(--hero-pad) - 2 * var(--pad) - var(--cap-h)),
+                       calc(min(1320px, 100vw) - 2 * var(--s-6) - 480px - clamp(40px, 5vw, 88px) - 2 * var(--pad))); }
+  .hero-board-link { display: block; text-decoration: none; }
+  .hero-board-link:hover { text-decoration: none; }
+  .hero-frame { transition: box-shadow .4s var(--ease); }
+  .hero-board-link:hover .hero-frame { box-shadow: inset 0 0 0 1px rgba(201,163,104,.35), 0 1px 0 rgba(0,0,0,.6), 0 40px 70px -30px rgba(0,0,0,.85); }
+  .hero-board .hb-sq { position: relative; transition: box-shadow .35s var(--ease); }
+  .hero-board .hb-sq.light { background: var(--light-sq); }
+  .hero-board .hb-sq.dark { background: var(--dark-sq); }
+  .hero-board .hb-sq.hb-last { box-shadow: inset 0 0 0 999px var(--sel); }
+  .hb-pieces { position: absolute; inset: 0; z-index: 2; pointer-events: none; transition: opacity .6s var(--ease); }
+  .hb-pieces.fade { opacity: 0; }
+  .hb-p { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; display: grid; place-items: center;
+    transform: translate(calc(var(--f) * 100%), calc(var(--r) * 100%));
+    transition: transform .62s cubic-bezier(.45,.05,.2,1), opacity .35s var(--ease); }
+  .hb-p img { width: 86%; height: 86%; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0,0,0,.38)); }
+  .hb-p.moving { z-index: 3; }
+  .hb-p.gone { opacity: 0; }
+  .hero-caption { display: flex; flex-direction: column; gap: 4px; margin-top: var(--s-4); }
+  .hb-ticker { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+  .hb-ticker .label { color: var(--brass); }
+  #hbMove { font-weight: 600; color: var(--ink); font-size: 15px; }
   @media (max-width: 999px) {
-    .hero-wrap { grid-template-columns: 1fr; gap: var(--s-7); min-height: 0; padding: var(--s-8) 0 0;
-      --hero-room: calc(100vh - 61px - 2 * var(--s-4) - 60px); }
-    .hero { max-width: 640px; }
-    .hero-media { justify-self: start; }
+    .hero-wrap { grid-template-columns: 1fr; gap: var(--s-7);
+      min-height: 0; padding: var(--s-8) 0 0; }
+    /* stacked: leave ~480px of the first screen for the headline above it */
+    .board-frame.hero-frame { --size: min(640px, calc(100vw - 64px - 2 * var(--pad)),
+                                     max(360px, calc(var(--vh) - 61px - 480px - 2 * var(--pad) - var(--cap-h)))); }
   }
-  @media (max-width: 640px) { .hero-wrap { padding-top: var(--s-7); gap: var(--s-6); } .hero .lead { font-size: 16.5px; } }
+  @media (max-width: 640px) {
+    .hero-wrap { padding-top: var(--s-7); gap: var(--s-6); }
+    .board-frame.hero-frame { --pad: 15px; --size: calc(100vw - 32px - 2 * var(--pad)); }
+  }
 
-  .preview { display: block; margin: 0 0 var(--s-3); border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden;
-    box-shadow: 0 40px 80px -40px rgba(0,0,0,.8); }
-  .preview img { display: block; width: 100%; height: auto; transition: transform .6s var(--ease); }
-  .preview:hover img { transform: scale(1.012); }
   .caption { font-size: 13px; color: var(--ink-3); margin: 0; max-width: 680px; }
 
   /* ---- motion: one timing system for the whole site ----
@@ -194,15 +219,27 @@ main:focus { outline: none; }
     transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
     transition-delay: var(--d, 0ms); }
   .reveal.in { opacity: 1; transform: none; }
+  /* Home sections rise further, and each section's hairline draws in from
+     the left as it arrives. The hero drifts up and fades as you scroll away
+     (--hero-p, 0 to 1, set by script). */
+  #home .reveal { --rise: 40px; }
+  #home .section-head { border-top: 0; position: relative; }
+  #home .section-head::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: var(--rule-strong); transform-origin: left; transition: transform 1.2s var(--reveal-ease); }
+  #home .section-head.draw:not(.in)::before { transform: scaleX(0); }
+  .hero { translate: 0 calc(var(--hero-p, 0) * -90px); opacity: calc(1 - var(--hero-p, 0) * .85); }
+  .hero-media { translate: 0 calc(var(--hero-p, 0) * -40px); }
   @media (prefers-reduced-motion: reduce) {
     .intro { animation: none; }
     .reveal { opacity: 1; transform: none; transition: none; }
+    #home .section-head.draw::before { transform: none; }
+    .hero, .hero-media { translate: none; opacity: 1; }
   }
 
   .section { padding: var(--s-9) 0 0; }
   .section-head { display: grid; grid-template-columns: 280px 1fr; gap: var(--s-6); align-items: baseline;
     border-top: 1px solid var(--rule); padding-top: var(--s-5); }
-  .section-head h2 { font-family: var(--serif); font-weight: 600; font-size: 30px; line-height: 1.15; margin: 0; }
+  .section-head h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(30px, 2.6vw, 40px); line-height: 1.12; margin: 0; }
   .section-body { max-width: 680px; }
   .section-body > p:first-child { margin-top: 0; }
   .section-body p { color: var(--ink-2); }
@@ -491,11 +528,19 @@ main:focus { outline: none; }
       </div>
 
       <figure class="hero-media intro">
-        <a class="preview" href="#play" aria-label="Open the board">
-          <img src="static/play_preview.webp" width="1600" height="944" decoding="async" fetchpriority="high"
-               alt="The Play view: a maple and walnut board in a dark wooden frame, an evaluation bar, the engine's suggested moves and the move list." />
+        <!-- A live board, not a screenshot: it plays a short opening line on
+             its own (the script under the footer). Clicking it opens Play. -->
+        <a class="hero-board-link" href="#play" aria-label="Open the board and play the engine">
+          <div class="board-frame hero-frame">
+            <div class="board-inner"><div class="board hero-board" id="heroBoard" aria-hidden="true"></div></div>
+            <div class="frame-coords files" aria-hidden="true"><span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span></div>
+            <div class="frame-coords ranks" aria-hidden="true"><span>8</span><span>7</span><span>6</span><span>5</span><span>4</span><span>3</span><span>2</span><span>1</span></div>
+          </div>
         </a>
-        <figcaption class="caption">Three opponents: the trained network alone, the network inside a small search, and a classical alpha-beta engine.</figcaption>
+        <figcaption class="hero-caption">
+          <span class="hb-ticker"><span class="label">Italian Game</span> <span id="hbMove" aria-hidden="true">&nbsp;</span></span>
+          <span class="caption">Three opponents: the network alone, the network in a small search, and a classical alpha-beta engine.</span>
+        </figcaption>
       </figure>
     </div>
 
@@ -994,26 +1039,104 @@ main:focus { outline: none; }
   <span><a href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">GitHub</a> &nbsp;·&nbsp; <a href="https://danny-397.github.io/">Dan Lichtenberger</a></span>
 </footer>
 
-<!-- Scroll reveals. Runs before chess.js so blocks are hidden before the
-     first paint, not shown and then hidden again. -->
+<!-- Home motion and scroll reveals. Runs before chess.js so the hero board
+     is drawn and blocks are hidden before the first paint, not shown and
+     then hidden again. Needs nothing from chess.js: the demo line is
+     precomputed (checked legal with python-chess). -->
 <script>
 (() => {
-  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const targets = document.querySelectorAll([
-    '#home .section-head > h2', '#home .section-body > p', '#home .section-body > .btn-row', '#home .rows > div',
-    '.prose > :not(.rows):not(ul):not(ol)', '.prose > .rows > div', '.prose > ul > li', '.prose > ol > li',
-  ].join(','));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- the live hero board: plays the Italian Game (Moller Attack) on a loop ----
+  const LINE = [["e2","e4",null,null,"1. e4"],["e7","e5",null,null,"1... e5"],["g1","f3",null,null,"2. Nf3"],["b8","c6",null,null,"2... Nc6"],["f1","c4",null,null,"3. Bc4"],["f8","c5",null,null,"3... Bc5"],["c2","c3",null,null,"4. c3"],["g8","f6",null,null,"4... Nf6"],["d2","d4",null,null,"5. d4"],["e5","d4","d4",null,"5... exd4"],["c3","d4","d4",null,"6. cxd4"],["c5","b4",null,null,"6... Bb4+"],["b1","c3",null,null,"7. Nc3"],["f6","e4","e4",null,"7... Nxe4"],["e1","g1",null,["h1","f1"],"8. O-O"],["b4","c3","c3",null,"8... Bxc3"],["d4","d5",null,null,"9. d5"],["c3","f6",null,null,"9... Bf6"],["f1","e1",null,null,"10. Re1"],["c6","e7",null,null,"10... Ne7"],["e1","e4","e4",null,"11. Rxe4"],["d7","d6",null,null,"11... d6"],["c1","g5",null,null,"12. Bg5"],["f6","g5","g5",null,"12... Bxg5"],["f3","g5","g5",null,"13. Nxg5"],["e8","g8",null,["h8","f8"],"13... O-O"],["g5","h7","h7",null,"14. Nxh7"]];
+  const board = document.getElementById('heroBoard');
+  const ticker = document.getElementById('hbMove');
+  if (board) {
+    const FILES = 'abcdefgh', sq = {};
+    for (let r = 8; r >= 1; r--) for (let f = 0; f < 8; f++) {
+      const d = document.createElement('div');
+      d.className = 'hb-sq ' + ((f + r) % 2 ? 'dark' : 'light');
+      sq[FILES[f] + r] = d; board.appendChild(d);
+    }
+    const layer = document.createElement('div');
+    layer.className = 'hb-pieces'; board.appendChild(layer);
+    let at = {}, last = [];
+    const put = (el, s) => { el.style.setProperty('--f', FILES.indexOf(s[0])); el.style.setProperty('--r', 8 - +s[1]); };
+    function reset() {
+      layer.textContent = ''; at = {};
+      last.forEach(s => sq[s].classList.remove('hb-last')); last = [];
+      const back = 'rnbqkbnr';
+      for (let f = 0; f < 8; f++) for (const [c, r, t] of [['w', 1, back[f]], ['w', 2, 'p'], ['b', 7, 'p'], ['b', 8, back[f]]]) {
+        const el = document.createElement('div'), img = document.createElement('img');
+        el.className = 'hb-p'; img.src = `static/pieces/${c}${t}.svg`; img.alt = ''; img.draggable = false;
+        el.appendChild(img); put(el, FILES[f] + r); layer.appendChild(el); at[FILES[f] + r] = el;
+      }
+      if (ticker) ticker.textContent = '\u00a0';
+    }
+    function slide(from, to) {
+      const el = at[from]; delete at[from]; at[to] = el;
+      el.classList.add('moving'); put(el, to);
+      setTimeout(() => el.classList.remove('moving'), 700);
+    }
+    function step([from, to, cap, rook, san]) {
+      if (cap) { const c = at[cap]; delete at[cap]; c.classList.add('gone'); setTimeout(() => c.remove(), 450); }
+      slide(from, to);
+      if (rook) slide(rook[0], rook[1]);
+      last.forEach(s => sq[s].classList.remove('hb-last'));
+      last = [from, to]; last.forEach(s => sq[s].classList.add('hb-last'));
+      if (ticker) ticker.textContent = san;
+    }
+    reset();
+    if (reduce) {
+      LINE.forEach(step);                       // a still position, no motion
+    } else {
+      // Plays only while the board is on screen and the tab is visible.
+      let i = 0, timer = null, onScreen = false;
+      const run = (ms) => { clearTimeout(timer); timer = setTimeout(tick, ms); };
+      function tick() {
+        if (!onScreen || document.hidden) { timer = null; return; }
+        if (i < LINE.length) { step(LINE[i++]); run(i < LINE.length ? 1150 : 4200); return; }
+        layer.classList.add('fade');            // hold the final position, fade, start over
+        setTimeout(() => { reset(); i = 0; layer.classList.remove('fade'); run(1100); }, 650);
+      }
+      let started = false;                      // the first move waits for the intro to settle
+      const wake = () => { if (onScreen && !document.hidden && !timer) { run(started ? 500 : 1000); started = true; } };
+      new IntersectionObserver(([e]) => { onScreen = e.isIntersecting; wake(); }, { threshold: .25 }).observe(board);
+      document.addEventListener('visibilitychange', wake);
+    }
+  }
+
+  if (reduce) return;
+
+  // ---- hero drifts up and fades as you scroll away from it ----
+  const hero = document.querySelector('.hero-wrap');
+  if (hero) {
+    let queued = false, lastP = -1;
+    const update = () => {
+      queued = false;
+      const p = Math.min(1, Math.max(0, scrollY / (hero.offsetHeight * .9 || 1)));
+      if (Math.abs(p - lastP) > .002) { hero.style.setProperty('--hero-p', p.toFixed(3)); lastP = p; }
+    };
+    addEventListener('scroll', () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
+  }
+
+  // ---- fade-and-rise reveals, and hairlines that draw in ----
+  if (!('IntersectionObserver' in window)) return;
   const io = new IntersectionObserver(entries => {
     // Blocks that arrive together come in one after another, top first.
     entries.filter(e => e.isIntersecting)
       .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
       .forEach((e, i) => {
-        e.target.style.setProperty('--d', Math.min(i * 70, 350) + 'ms');
+        e.target.style.setProperty('--d', Math.min(i * 80, 400) + 'ms');
         e.target.classList.add('in');
         io.unobserve(e.target);
       });
   }, { rootMargin: '0px 0px -8% 0px' });
-  targets.forEach(el => { el.classList.add('reveal'); io.observe(el); });
+  document.querySelectorAll([
+    '#home .section-head > h2', '#home .section-body > p', '#home .section-body > .btn-row', '#home .rows > div',
+    '.prose > :not(.rows):not(ul):not(ol)', '.prose > .rows > div', '.prose > ul > li', '.prose > ol > li',
+  ].join(',')).forEach(el => { el.classList.add('reveal'); io.observe(el); });
+  document.querySelectorAll('#home .section-head').forEach(el => { el.classList.add('draw'); io.observe(el); });
 })();
 </script>
 
@@ -1107,7 +1230,7 @@ function soundForMove(mv) {
 function showSpinner() { document.getElementById('spinner').classList.add('show'); }
 function hideSpinner() { document.getElementById('spinner').classList.remove('show'); }
 function yourTurnCue() {
-  const frame = document.querySelector('.board-frame');
+  const frame = document.querySelector('#play .board-frame');
   frame.classList.remove('yourturn'); void frame.offsetWidth;  // restart the animation
   frame.classList.add('yourturn');
   setTimeout(() => frame.classList.remove('yourturn'), 950);
