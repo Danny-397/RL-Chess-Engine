@@ -152,16 +152,52 @@ main:focus { outline: none; }
   .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); }
 
   /* ---- home ---- */
-  .hero { padding: var(--s-9) 0 var(--s-8); max-width: 760px; }
-  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(40px, 5.2vw, 64px); line-height: 1.04;
-    letter-spacing: -.01em; margin: 0 0 var(--s-5); }
-  .hero .lead { font-size: 18px; line-height: 1.6; color: var(--ink-2); max-width: 600px; margin: 0 0 var(--s-6); }
-  @media (max-width: 640px) { .hero { padding: var(--s-7) 0 var(--s-7); } .hero .lead { font-size: 16.5px; } }
+  /* The hero is one screen: headline on the left, the board on the right,
+     the board sized so all of it (and its caption) fits under the header.
+     --hero-room is the viewport height left for the screenshot. */
+  .hero-wrap { --hero-room: calc(100vh - 61px - 2 * var(--s-7) - 60px);
+    display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 56px; align-items: center;
+    min-height: calc(100vh - 61px); padding: var(--s-7) 0; }
+  @supports (height: 100svh) {
+    .hero-wrap { --hero-room: calc(100svh - 61px - 2 * var(--s-7) - 60px); min-height: calc(100svh - 61px); }
+  }
+  .hero h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(40px, 4vw, 58px); line-height: 1.04;
+    letter-spacing: -.01em; margin: 0 0 var(--s-5); text-wrap: balance; }
+  .hero .lead { font-size: 17.5px; line-height: 1.6; color: var(--ink-2); max-width: 600px; margin: 0 0 var(--s-6); }
+  .hero-media { margin: 0; justify-self: end; width: min(100%, calc(max(var(--hero-room), 280px) * 1600 / 944)); }
+  @media (max-width: 999px) {
+    .hero-wrap { grid-template-columns: 1fr; gap: var(--s-7); min-height: 0; padding: var(--s-8) 0 0;
+      --hero-room: calc(100vh - 61px - 2 * var(--s-4) - 60px); }
+    .hero { max-width: 640px; }
+    .hero-media { justify-self: start; }
+  }
+  @media (max-width: 640px) { .hero-wrap { padding-top: var(--s-7); gap: var(--s-6); } .hero .lead { font-size: 16.5px; } }
 
   .preview { display: block; margin: 0 0 var(--s-3); border: 1px solid var(--rule); border-radius: var(--r); overflow: hidden;
     box-shadow: 0 40px 80px -40px rgba(0,0,0,.8); }
-  .preview img { display: block; width: 100%; height: auto; }
+  .preview img { display: block; width: 100%; height: auto; transition: transform .6s var(--ease); }
+  .preview:hover img { transform: scale(1.012); }
   .caption { font-size: 13px; color: var(--ink-3); margin: 0; max-width: 680px; }
+
+  /* ---- motion: one timing system for the whole site ----
+     .intro plays once on load (the hero), .reveal fades and rises as it
+     scrolls into view. Both are skipped for reduced motion, and .reveal is
+     only ever added by script, so without JS everything is simply shown. */
+  :root { --rise: 22px; --reveal-dur: 760ms; --reveal-ease: cubic-bezier(.16,.84,.3,1); }
+  @keyframes rise { from { opacity: 0; transform: translateY(var(--rise)); } to { opacity: 1; transform: none; } }
+  .intro { animation: rise var(--reveal-dur) var(--reveal-ease) both; }
+  .hero h1.intro { animation-delay: 40ms; }
+  .hero .lead.intro { animation-delay: 130ms; }
+  .hero .btn-row.intro { animation-delay: 220ms; }
+  .hero-media.intro { animation-delay: 180ms; animation-duration: 1000ms; --rise: 30px; }
+  .reveal { opacity: 0; transform: translateY(var(--rise));
+    transition: opacity var(--reveal-dur) var(--reveal-ease), transform var(--reveal-dur) var(--reveal-ease);
+    transition-delay: var(--d, 0ms); }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .intro { animation: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
 
   .section { padding: var(--s-9) 0 0; }
   .section-head { display: grid; grid-template-columns: 280px 1fr; gap: var(--s-6); align-items: baseline;
@@ -443,21 +479,25 @@ main:focus { outline: none; }
 <main id="main" tabindex="-1">
   <!-- ===================== HOME ===================== -->
   <section id="home" class="view active">
-    <div class="hero">
-      <h1>A chess engine that learns from its own games</h1>
-      <p class="lead">An AlphaZero-style engine written from scratch in Python and PyTorch, and a
-        controlled look at why its self-play training stalls.</p>
-      <div class="btn-row">
-        <button class="btn primary" data-goto="play">Play the engine</button>
-        <button class="text-link" data-goto="findings">Read the findings</button>
+    <div class="hero-wrap">
+      <div class="hero">
+        <h1 class="intro">A chess engine that learns from its own games</h1>
+        <p class="lead intro">An AlphaZero-style engine written from scratch in Python and PyTorch, and a
+          controlled look at why its self-play training stalls.</p>
+        <div class="btn-row intro">
+          <button class="btn primary" data-goto="play">Play the engine</button>
+          <button class="text-link" data-goto="findings">Read the findings</button>
+        </div>
       </div>
-    </div>
 
-    <a class="preview" href="#play" aria-label="Open the board">
-      <img src="static/play_preview.webp" width="1600" height="991" decoding="async" fetchpriority="high"
-           alt="The Play view: a maple and walnut board in a dark wooden frame, an evaluation bar, the engine's suggested moves and the move list." />
-    </a>
-    <p class="caption">Three opponents: the trained network alone, the network inside a small search, and a classical alpha-beta engine.</p>
+      <figure class="hero-media intro">
+        <a class="preview" href="#play" aria-label="Open the board">
+          <img src="static/play_preview.webp" width="1600" height="944" decoding="async" fetchpriority="high"
+               alt="The Play view: a maple and walnut board in a dark wooden frame, an evaluation bar, the engine's suggested moves and the move list." />
+        </a>
+        <figcaption class="caption">Three opponents: the trained network alone, the network inside a small search, and a classical alpha-beta engine.</figcaption>
+      </figure>
+    </div>
 
     <div class="section">
       <div class="section-head">
@@ -954,6 +994,28 @@ main:focus { outline: none; }
   <span><a href="https://github.com/Danny-397/RL-Chess-Engine" target="_blank" rel="noopener">GitHub</a> &nbsp;·&nbsp; <a href="https://danny-397.github.io/">Dan Lichtenberger</a></span>
 </footer>
 
+<!-- Scroll reveals. Runs before chess.js so blocks are hidden before the
+     first paint, not shown and then hidden again. -->
+<script>
+(() => {
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const targets = document.querySelectorAll([
+    '#home .section-head > h2', '#home .section-body > p', '#home .section-body > .btn-row', '#home .rows > div',
+    '.prose > :not(.rows):not(ul):not(ol)', '.prose > .rows > div', '.prose > ul > li', '.prose > ol > li',
+  ].join(','));
+  const io = new IntersectionObserver(entries => {
+    // Blocks that arrive together come in one after another, top first.
+    entries.filter(e => e.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      .forEach((e, i) => {
+        e.target.style.setProperty('--d', Math.min(i * 70, 350) + 'ms');
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      });
+  }, { rootMargin: '0px 0px -8% 0px' });
+  targets.forEach(el => { el.classList.add('reveal'); io.observe(el); });
+})();
+</script>
 
 <!-- chess.js sits here, not in <head>: there it blocked first paint (~0.9 s on mobile). It must still run before the inline script. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
